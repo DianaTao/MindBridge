@@ -1,0 +1,14 @@
+{
+  "httpMethod": "GET",
+  "path": "/health",
+  "requestContext": {
+    "requestId": "test-request",
+    "httpMethod": "GET",
+    "resourcePath": "/health"
+  },
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body": null,
+  "isBase64Encoded": false
+} 

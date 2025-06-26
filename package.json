@@ -1,0 +1,42 @@
+{
+  "name": "mindbridge-ai",
+  "version": "1.0.0",
+  "description": "Real-Time Emotional Intelligence Platform",
+  "main": "index.js",
+  "scripts": {
+    "install:all": "npm install && cd infrastructure && npm install && cd ../frontend && npm install",
+    "build": "npm run build:lambda && npm run build:frontend && npm run build:infrastructure",
+    "build:lambda": "cd lambda_functions && python -m compileall .",
+    "build:frontend": "cd frontend && npm run build",
+    "build:infrastructure": "cd infrastructure && npm run build",
+    "deploy": "cd infrastructure && cdk deploy",
+    "deploy:dev": "cd infrastructure && cdk deploy --context environment=development",
+    "deploy:prod": "cd infrastructure && cdk deploy --context environment=production",
+    "start:frontend": "cd frontend && npm start",
+    "test": "npm run test:lambda && npm run test:frontend",
+    "test:lambda": "cd lambda_functions && python -m pytest",
+    "test:frontend": "cd frontend && npm test",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "format": "prettier --write .",
+    "clean": "rm -rf node_modules */node_modules */dist */build"
+  },
+  "keywords": [
+    "ai",
+    "emotion-detection",
+    "aws-lambda",
+    "real-time",
+    "mental-health",
+    "serverless"
+  ],
+  "author": "MindBridge AI Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "eslint": "^8.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+} 
