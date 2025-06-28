@@ -29,6 +29,31 @@ os.environ['AWS_ACCESS_KEY_ID'] = 'test'
 os.environ['AWS_SECRET_ACCESS_KEY'] = 'test'
 os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
 
+# Mock context for local testing
+class MockContext:
+    def get_remaining_time_in_millis(self):
+        return 300000  # 5 minutes
+
+    @property
+    def function_name(self):
+        return 'local-function'
+    
+    @property
+    def function_version(self):
+        return '$LATEST'
+    
+    @property
+    def invoked_function_arn(self):
+        return 'arn:aws:lambda:us-east-1:123456789012:function:local-function'
+    
+    @property
+    def memory_limit_in_mb(self):
+        return 128
+    
+    @property
+    def aws_request_id(self):
+        return 'local-request-id'
+
 app = Flask(__name__)
 CORS(app, origins=['http://localhost:3000'], supports_credentials=True)
 
@@ -93,15 +118,18 @@ def video_analysis():
     }
     
     try:
-        result = video_handler.lambda_handler(event, None)
+        result = video_handler.lambda_handler(event, MockContext())
+        logger.info(f"Video analysis result: {result}")
         
         # Handle Lambda response format
         if isinstance(result, dict) and 'body' in result:
             # Extract body from Lambda response
             body_data = json.loads(result['body'])
+            logger.info(f"Parsed body data: {body_data}")
             return jsonify(body_data)
         else:
             # Direct response
+            logger.info(f"Direct response: {result}")
             return jsonify(result)
             
     except Exception as e:
@@ -122,7 +150,7 @@ def audio_analysis():
     }
     
     try:
-        result = audio_handler.lambda_handler(event, None)
+        result = audio_handler.lambda_handler(event, MockContext())
         
         # Handle Lambda response format
         if isinstance(result, dict) and 'body' in result:
@@ -151,7 +179,7 @@ def emotion_fusion():
     }
     
     try:
-        result = fusion_handler.lambda_handler(event, None)
+        result = fusion_handler.lambda_handler(event, MockContext())
         
         # Handle Lambda response format
         if isinstance(result, dict) and 'body' in result:
@@ -181,7 +209,7 @@ def dashboard(path):
     }
     
     try:
-        result = dashboard_handler.lambda_handler(event, None)
+        result = dashboard_handler.lambda_handler(event, MockContext())
         return jsonify(result)
     except Exception as e:
         logger.error(f"Dashboard error: {e}")

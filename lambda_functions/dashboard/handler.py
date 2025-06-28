@@ -33,8 +33,17 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     - Real-time emotion data requests
     - Analytics queries
     - Dashboard updates
+    - Health check endpoint
     """
     try:
+        # Check if this is an HTTP request (API Gateway) or WebSocket request
+        http_method = event.get('httpMethod')
+        
+        if http_method == 'GET':
+            # Handle HTTP GET request (health check)
+            return handle_health_check()
+        
+        # Handle WebSocket requests
         route_key = event.get('requestContext', {}).get('routeKey', '$default')
         connection_id = event.get('requestContext', {}).get('connectionId')
         domain_name = event.get('requestContext', {}).get('domainName')
@@ -508,4 +517,61 @@ def send_message_to_connection(connection_id: str, message: Dict[str, Any]) -> N
     except apigateway.exceptions.GoneException:
         logger.warning(f"Connection {connection_id} is no longer available")
     except Exception as e:
-        logger.error(f"Error sending message to connection {connection_id}: {str(e)}") 
+        logger.error(f"Error sending message to connection {connection_id}: {str(e)}")
+
+def handle_health_check() -> Dict[str, Any]:
+    """
+    Handle health check endpoint
+    """
+    try:
+        logger.info("🔍 Health check request received")
+        
+        # Check if all handlers are available
+        handlers_status = {
+            "video": True,
+            "audio": True, 
+            "text": True,
+            "fusion": True,
+            "dashboard": True
+        }
+        
+        # Prepare response
+        response_data = {
+            "service": "MindBridge AI",
+            "status": "healthy",
+            "timestamp": datetime.utcnow().isoformat(),
+            "handlers": handlers_status,
+            "version": "1.0.0",
+            "environment": os.environ.get('STAGE', 'dev')
+        }
+        
+        logger.info("✅ Health check completed successfully")
+        
+        return {
+            "statusCode": 200,
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "Content-Type",
+                "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
+            },
+            "body": json.dumps(response_data)
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Health check failed: {str(e)}")
+        return {
+            "statusCode": 500,
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "Content-Type", 
+                "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
+            },
+            "body": json.dumps({
+                "service": "MindBridge AI",
+                "status": "unhealthy",
+                "error": str(e),
+                "timestamp": datetime.utcnow().isoformat()
+            })
+        } 

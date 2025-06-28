@@ -237,6 +237,24 @@ class MindBridgeStack(Stack):
             log_retention=logs.RetentionDays.ONE_WEEK,
         )
 
+        # Text Analysis Lambda
+        text_analysis_lambda = _lambda.Function(
+            self, "TextAnalysisLambda",
+            function_name=f"mindbridge-text-analysis-{stage}",
+            runtime=_lambda.Runtime.PYTHON_3_9,
+            handler="handler.lambda_handler",
+            code=_lambda.Code.from_asset("../lambda_functions/text_analysis"),
+            timeout=Duration.seconds(30),
+            memory_size=512,
+            role=lambda_role,
+            environment={
+                "EMOTIONS_TABLE": emotions_table.table_name,
+                "STAGE": stage,
+                "FUSION_LAMBDA_ARN": emotion_fusion_lambda.function_arn,
+            },
+            log_retention=logs.RetentionDays.ONE_WEEK,
+        )
+
         # Dashboard Lambda
         dashboard_lambda = _lambda.Function(
             self, "DashboardLambda",
@@ -249,6 +267,22 @@ class MindBridgeStack(Stack):
             role=lambda_role,
             environment={
                 "EMOTIONS_TABLE": emotions_table.table_name,
+                "STAGE": stage,
+            },
+            log_retention=logs.RetentionDays.ONE_WEEK,
+        )
+
+        # Health Check Lambda
+        health_check_lambda = _lambda.Function(
+            self, "HealthCheckLambda",
+            function_name=f"mindbridge-health-check-{stage}",
+            runtime=_lambda.Runtime.PYTHON_3_9,
+            handler="handler.lambda_handler",
+            code=_lambda.Code.from_asset("../lambda_functions/health_check"),
+            timeout=Duration.seconds(10),
+            memory_size=128,
+            role=lambda_role,
+            environment={
                 "STAGE": stage,
             },
             log_retention=logs.RetentionDays.ONE_WEEK,
@@ -277,6 +311,9 @@ class MindBridgeStack(Stack):
         audio_resource = rest_api.root.add_resource("audio-analysis")
         audio_resource.add_method("POST", apigateway.LambdaIntegration(audio_analysis_lambda))
 
+        text_resource = rest_api.root.add_resource("text-analysis")
+        text_resource.add_method("POST", apigateway.LambdaIntegration(text_analysis_lambda))
+
         fusion_resource = rest_api.root.add_resource("emotion-fusion")
         fusion_resource.add_method("POST", apigateway.LambdaIntegration(emotion_fusion_lambda))
 
@@ -285,7 +322,10 @@ class MindBridgeStack(Stack):
         dashboard_resource.add_method("POST", apigateway.LambdaIntegration(dashboard_lambda))
 
         health_resource = rest_api.root.add_resource("health")
-        health_resource.add_method("GET", apigateway.LambdaIntegration(dashboard_lambda))
+        health_resource.add_method("GET", apigateway.LambdaIntegration(health_check_lambda))
+
+        # Add root endpoint
+        rest_api.root.add_method("GET", apigateway.LambdaIntegration(dashboard_lambda))
 
         # ==============================================
         # OUTPUTS
