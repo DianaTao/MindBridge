@@ -479,6 +479,24 @@ class MindBridgeStack(Stack):
             log_retention=logs.RetentionDays.ONE_WEEK,
         )
 
+        # HR Wellness Data Lambda
+        hr_wellness_data_lambda = _lambda.Function(
+            self, "HRWellnessDataLambda",
+            function_name=f"mindbridge-hr-wellness-data-{stage}",
+            runtime=_lambda.Runtime.PYTHON_3_9,
+            handler="handler.lambda_handler",
+            code=_lambda.Code.from_asset("../lambda_functions/hr_wellness_data"),
+            timeout=Duration.seconds(60),  # Longer timeout for data aggregation
+            memory_size=1024,
+            role=lambda_role,
+            environment={
+                "CHECKINS_TABLE": f"mindbridge-checkins-{stage}",
+                "USERS_TABLE": f"mindbridge-users-{stage}",
+                "STAGE": stage,
+            },
+            log_retention=logs.RetentionDays.ONE_WEEK,
+        )
+
         # ==============================================
         # API GATEWAY
         # ==============================================
@@ -549,6 +567,10 @@ class MindBridgeStack(Stack):
         checkin_retriever_resource = rest_api.root.add_resource("checkin-retriever")
         checkin_retriever_resource.add_method("GET", create_lambda_integration(checkin_retriever_lambda))
         checkin_retriever_resource.add_method("POST", create_lambda_integration(checkin_retriever_lambda))
+
+        # HR Wellness Data endpoint
+        hr_wellness_data_resource = rest_api.root.add_resource("hr-wellness-data")
+        hr_wellness_data_resource.add_method("GET", create_lambda_integration(hr_wellness_data_lambda))
 
         # Add root endpoint
         rest_api.root.add_method("GET", create_lambda_integration(dashboard_lambda))

@@ -1,0 +1,336 @@
+name: MindBridge CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  AWS_REGION: us-east-1
+  NODE_VERSION: '18'
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  # ==============================================
+  # LINTING & TESTING
+  # ==============================================
+  lint-and-test:
+    name: Lint and Test
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    # Frontend linting and testing
+    - name: Install frontend dependencies
+      working-directory: ./frontend
+      run: npm ci
+
+    - name: Run frontend linting
+      working-directory: ./frontend
+      run: npm run lint
+
+    - name: Run frontend tests
+      working-directory: ./frontend
+      run: npm test -- --watchAll=false --coverage --passWithNoTests
+
+    # Backend linting and testing
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 black pytest pytest-cov
+        pip install -r requirements.txt
+
+    - name: Run Python linting
+      run: |
+        flake8 lambda_functions/ --max-line-length=120 --ignore=E501,W503
+        black --check --diff lambda_functions/
+
+    - name: Run Python tests
+      run: |
+        pytest lambda_functions/ --cov=lambda_functions --cov-report=xml --cov-report=term-missing
+
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: backend
+        name: backend-coverage
+
+  # ==============================================
+  # FRONTEND BUILD
+  # ==============================================
+  build-frontend:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+    needs: lint-and-test
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install frontend dependencies
+      working-directory: ./frontend
+      run: npm ci
+
+    - name: Build frontend
+      working-directory: ./frontend
+      run: npm run build
+      env:
+        GENERATE_SOURCEMAP: false
+        REACT_APP_API_URL: ${{ secrets.REACT_APP_API_URL }}
+        REACT_APP_WS_URL: ${{ secrets.REACT_APP_WS_URL }}
+
+    - name: Upload frontend build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: frontend-build
+        path: frontend/build/
+        retention-days: 1
+
+  # ==============================================
+  # INFRASTRUCTURE DEPLOYMENT
+  # ==============================================
+  deploy-infrastructure:
+    name: Deploy Infrastructure
+    runs-on: ubuntu-latest
+    needs: [lint-and-test, build-frontend]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    # Install CDK dependencies
+    - name: Install CDK dependencies
+      working-directory: ./infrastructure
+      run: |
+        npm install -g aws-cdk
+        npm install
+
+    # Deploy infrastructure
+    - name: Deploy CDK infrastructure
+      working-directory: ./infrastructure
+      run: |
+        cdk deploy --require-approval never --context environment=${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
+      env:
+        CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
+        CDK_DEFAULT_REGION: ${{ env.AWS_REGION }}
+
+    # Get S3 bucket names from CDK outputs
+    - name: Get S3 bucket names
+      working-directory: ./infrastructure
+      run: |
+        FRONTEND_BUCKET=$(aws cloudformation describe-stacks --stack-name MindBridgeStack --query 'Stacks[0].Outputs[?OutputKey==`FrontendBucketName`].OutputValue' --output text)
+        echo "FRONTEND_BUCKET=$FRONTEND_BUCKET" >> $GITHUB_ENV
+
+  # ==============================================
+  # FRONTEND DEPLOYMENT
+  # ==============================================
+  deploy-frontend:
+    name: Deploy Frontend
+    runs-on: ubuntu-latest
+    needs: deploy-infrastructure
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download frontend build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: frontend-build
+        path: frontend/build/
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Deploy frontend to S3
+      run: |
+        aws s3 sync frontend/build/ s3://${{ needs.deploy-infrastructure.outputs.frontend-bucket }} --delete --cache-control "max-age=31536000,public"
+        aws s3 cp frontend/build/index.html s3://${{ needs.deploy-infrastructure.outputs.frontend-bucket }}/index.html --cache-control "no-cache,no-store,must-revalidate"
+
+    - name: Invalidate CloudFront cache
+      run: |
+        DISTRIBUTION_ID=$(aws cloudformation describe-stacks --stack-name MindBridgeStack --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDistributionId`].OutputValue' --output text)
+        aws cloudfront create-invalidation --distribution-id $DISTRIBUTION_ID --paths "/*"
+
+  # ==============================================
+  # LAMBDA FUNCTION DEPLOYMENT
+  # ==============================================
+  deploy-lambda-functions:
+    name: Deploy Lambda Functions
+    runs-on: ubuntu-latest
+    needs: deploy-infrastructure
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    # Deploy Lambda functions
+    - name: Deploy Lambda functions
+      run: |
+        # Create deployment script
+        cat > deploy_lambda.sh << 'EOF'
+        #!/bin/bash
+        FUNCTION_DIR=$1
+        FUNCTION_NAME=$2
+        
+        echo "Deploying $FUNCTION_NAME from $FUNCTION_DIR"
+        
+        # Create deployment package
+        cd $FUNCTION_DIR
+        if [ -f "requirements.txt" ]; then
+          pip install -r requirements.txt -t .
+        fi
+        
+        # Create ZIP file
+        zip -r ../${FUNCTION_NAME}.zip . -x "*.pyc" "__pycache__/*" "*.git*"
+        
+        # Update Lambda function
+        aws lambda update-function-code \
+          --function-name $FUNCTION_NAME \
+          --zip-file fileb://../${FUNCTION_NAME}.zip
+        
+        echo "Deployed $FUNCTION_NAME successfully"
+        EOF
+        
+        chmod +x deploy_lambda.sh
+        
+        # Deploy each Lambda function
+        ./deploy_lambda.sh lambda_functions/checkin_processor mindbridge-checkin-processor-${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+        ./deploy_lambda.sh lambda_functions/checkin_retriever mindbridge-checkin-retriever-${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+        ./deploy_lambda.sh lambda_functions/dashboard mindbridge-dashboard-${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+        ./deploy_lambda.sh lambda_functions/emotion_fusion mindbridge-emotion-fusion-${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+        ./deploy_lambda.sh lambda_functions/health_check mindbridge-health-check-${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+        ./deploy_lambda.sh lambda_functions/realtime_call_analysis mindbridge-realtime-call-analysis-${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+        ./deploy_lambda.sh lambda_functions/text_analysis mindbridge-text-analysis-${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+        ./deploy_lambda.sh lambda_functions/user_auth mindbridge-user-auth-${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+        ./deploy_lambda.sh lambda_functions/video_analysis mindbridge-video-analysis-${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+
+  # ==============================================
+  # POST-DEPLOYMENT TESTS
+  # ==============================================
+  post-deployment-tests:
+    name: Post-Deployment Tests
+    runs-on: ubuntu-latest
+    needs: [deploy-frontend, deploy-lambda-functions]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Run health checks
+      run: |
+        # Get API Gateway URL from CloudFormation outputs
+        API_URL=$(aws cloudformation describe-stacks --stack-name MindBridgeStack --query 'Stacks[0].Outputs[?OutputKey==`ApiGatewayUrl`].OutputValue' --output text)
+        
+        # Test health endpoint
+        curl -f $API_URL/health || exit 1
+        
+        # Test frontend deployment
+        FRONTEND_URL=$(aws cloudformation describe-stacks --stack-name MindBridgeStack --query 'Stacks[0].Outputs[?OutputKey==`FrontendUrl`].OutputValue' --output text)
+        curl -f $FRONTEND_URL || exit 1
+
+    - name: Notify deployment success
+      if: success()
+      run: |
+        echo "🎉 Deployment completed successfully!"
+        echo "Frontend URL: ${{ needs.deploy-infrastructure.outputs.frontend-url }}"
+        echo "API URL: ${{ needs.deploy-infrastructure.outputs.api-url }}"
+
+  # ==============================================
+  # SECURITY SCANNING
+  # ==============================================
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif' 

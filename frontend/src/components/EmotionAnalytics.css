@@ -567,6 +567,33 @@
   color: #065f46;
 }
 
+.hr-toggle-button {
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #1e40af 0%, #3730a3 100%);
+  color: white;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  backdrop-filter: blur(10px);
+}
+
+.hr-toggle-button:hover {
+  background: linear-gradient(135deg, #3730a3 0%, #1e40af 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(255, 255, 255, 0.2);
+}
+
+.hr-toggle-button.active {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
 /* Mobile Responsive */
 @media (max-width: 768px) {
   .analytics-header {

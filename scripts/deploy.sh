@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# MindBridge AI Deployment Script
-# This script deploys the entire MindBridge AI platform
+# MindBridge Deployment Script
+# This script handles the complete deployment of the MindBridge application
 
 set -e  # Exit on any error
 
@@ -12,22 +12,21 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Configuration
-ENVIRONMENT=${1:-development}
-AWS_REGION=${AWS_REGION:-us-east-1}
-AWS_PROFILE=${AWS_PROFILE:-default}
+# Function to print colored output
+print_status() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
 
-echo -e "${BLUE}🧠 MindBridge AI Deployment${NC}"
-echo -e "${BLUE}=============================${NC}"
-echo -e "Environment: ${YELLOW}$ENVIRONMENT${NC}"
-echo -e "AWS Region: ${YELLOW}$AWS_REGION${NC}"
-echo -e "AWS Profile: ${YELLOW}$AWS_PROFILE${NC}"
-echo ""
+print_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
 
-# Function to print step headers
-print_step() {
-    echo -e "${GREEN}📦 $1${NC}"
-    echo "----------------------------------------"
+print_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
 }
 
 # Function to check if command exists
@@ -35,172 +34,352 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
-# Check prerequisites
-print_step "Checking Prerequisites"
-
-if ! command_exists aws; then
-    echo -e "${RED}❌ AWS CLI not found. Please install AWS CLI.${NC}"
-    exit 1
-fi
-
-if ! command_exists npm; then
-    echo -e "${RED}❌ npm not found. Please install Node.js and npm.${NC}"
-    exit 1
-fi
-
-if ! command_exists python3; then
-    echo -e "${RED}❌ python3 not found. Please install Python 3.9+.${NC}"
-    exit 1
-fi
-
-if ! command_exists pip3; then
-    echo -e "${RED}❌ pip3 not found. Please install pip3.${NC}"
-    exit 1
-fi
-
-if ! command_exists cdk; then
-    echo -e "${RED}❌ AWS CDK not found. Installing...${NC}"
-    npm install -g aws-cdk
-fi
-
-echo -e "${GREEN}✅ All prerequisites satisfied${NC}"
-echo ""
-
-# Install dependencies
-print_step "Installing Dependencies"
-
-echo "Installing root dependencies..."
-npm install
-
-echo "Installing infrastructure dependencies..."
-cd infrastructure
-npm install
-cd ..
-
-echo "Installing frontend dependencies..."
-cd frontend
-npm install
-cd ..
-
-echo "Installing Python dependencies..."
-pip3 install -r requirements.txt
-
-echo -e "${GREEN}✅ Dependencies installed${NC}"
-echo ""
-
-# Build Lambda functions
-print_step "Building Lambda Functions"
-
-for lambda_dir in lambda_functions/*/; do
-    if [ -d "$lambda_dir" ]; then
-        lambda_name=$(basename "$lambda_dir")
-        echo "Building $lambda_name..."
-        
-        # Install lambda-specific dependencies if requirements.txt exists
-        if [ -f "$lambda_dir/requirements.txt" ]; then
-            pip3 install -r "$lambda_dir/requirements.txt" -t "$lambda_dir"
-        fi
-        
-        # Compile Python files
-        python3 -m compileall "$lambda_dir"
+# Function to check AWS CLI configuration
+check_aws_config() {
+    if ! command_exists aws; then
+        print_error "AWS CLI is not installed. Please install it first."
+        exit 1
     fi
-done
 
-echo -e "${GREEN}✅ Lambda functions built${NC}"
-echo ""
+    if ! aws sts get-caller-identity >/dev/null 2>&1; then
+        print_error "AWS CLI is not configured. Please run 'aws configure' first."
+        exit 1
+    fi
 
-# Build frontend
-print_step "Building Frontend"
+    print_success "AWS CLI is configured"
+}
 
-cd frontend
-npm run build
-cd ..
+# Function to check Node.js
+check_node() {
+    if ! command_exists node; then
+        print_error "Node.js is not installed. Please install it first."
+        exit 1
+    fi
 
-echo -e "${GREEN}✅ Frontend built${NC}"
-echo ""
+    if ! command_exists npm; then
+        print_error "npm is not installed. Please install it first."
+        exit 1
+    fi
 
-# Deploy infrastructure
-print_step "Deploying Infrastructure"
+    print_success "Node.js and npm are available"
+}
 
-cd infrastructure
+# Function to check Python
+check_python() {
+    if ! command_exists python3; then
+        print_error "Python 3 is not installed. Please install it first."
+        exit 1
+    fi
 
-# Bootstrap CDK if needed
-echo "Checking CDK bootstrap..."
-cdk bootstrap --profile $AWS_PROFILE
+    print_success "Python 3 is available"
+}
 
-# Deploy with environment context
-echo "Deploying CDK stack..."
-cdk deploy --profile $AWS_PROFILE --context environment=$ENVIRONMENT --require-approval never
+# Function to build frontend
+build_frontend() {
+    print_status "Building frontend..."
+    
+    cd frontend
+    
+    # Install dependencies
+    print_status "Installing frontend dependencies..."
+    npm ci
+    
+    # Run linting
+    print_status "Running frontend linting..."
+    npm run lint
+    
+    # Run tests
+    print_status "Running frontend tests..."
+    npm test -- --watchAll=false --passWithNoTests
+    
+    # Build
+    print_status "Building frontend for production..."
+    GENERATE_SOURCEMAP=false npm run build
+    
+    cd ..
+    print_success "Frontend build completed"
+}
 
-# Get outputs
-echo "Getting stack outputs..."
-WEBSOCKET_URL=$(aws cloudformation describe-stacks \
-    --stack-name MindBridgeStack \
-    --profile $AWS_PROFILE \
-    --region $AWS_REGION \
-    --query 'Stacks[0].Outputs[?OutputKey==`WebSocketURL`].OutputValue' \
-    --output text)
+# Function to deploy infrastructure
+deploy_infrastructure() {
+    print_status "Deploying infrastructure..."
+    
+    cd infrastructure
+    
+    # Install dependencies
+    print_status "Installing CDK dependencies..."
+    npm install
+    
+    # Bootstrap CDK (if needed)
+    print_status "Bootstrapping CDK..."
+    cdk bootstrap || print_warning "CDK bootstrap failed, continuing..."
+    
+    # Deploy
+    print_status "Deploying CDK stack..."
+    cdk deploy --require-approval never --context environment=$ENVIRONMENT
+    
+    cd ..
+    print_success "Infrastructure deployment completed"
+}
 
-HTTP_API_URL=$(aws cloudformation describe-stacks \
-    --stack-name MindBridgeStack \
-    --profile $AWS_PROFILE \
-    --region $AWS_REGION \
-    --query 'Stacks[0].Outputs[?OutputKey==`HttpApiURL`].OutputValue' \
-    --output text)
+# Function to deploy frontend to S3
+deploy_frontend() {
+    print_status "Deploying frontend to S3..."
+    
+    # Get bucket name from CloudFormation outputs
+    FRONTEND_BUCKET=$(aws cloudformation describe-stacks \
+        --stack-name MindBridgeStack \
+        --query 'Stacks[0].Outputs[?OutputKey==`FrontendBucketName`].OutputValue' \
+        --output text)
+    
+    if [ -z "$FRONTEND_BUCKET" ]; then
+        print_error "Could not get frontend bucket name from CloudFormation"
+        exit 1
+    fi
+    
+    print_status "Deploying to bucket: $FRONTEND_BUCKET"
+    
+    # Sync build files
+    aws s3 sync frontend/build/ s3://$FRONTEND_BUCKET \
+        --delete \
+        --cache-control "max-age=31536000,public"
+    
+    # Upload index.html with no-cache
+    aws s3 cp frontend/build/index.html s3://$FRONTEND_BUCKET/index.html \
+        --cache-control "no-cache,no-store,must-revalidate"
+    
+    # Invalidate CloudFront cache
+    print_status "Invalidating CloudFront cache..."
+    DISTRIBUTION_ID=$(aws cloudformation describe-stacks \
+        --stack-name MindBridgeStack \
+        --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDistributionId`].OutputValue' \
+        --output text)
+    
+    if [ ! -z "$DISTRIBUTION_ID" ]; then
+        aws cloudfront create-invalidation \
+            --distribution-id $DISTRIBUTION_ID \
+            --paths "/*"
+    fi
+    
+    print_success "Frontend deployment completed"
+}
 
-cd ..
+# Function to deploy Lambda functions
+deploy_lambda_functions() {
+    print_status "Deploying Lambda functions..."
+    
+    # Create deployment script
+    cat > deploy_lambda.sh << 'EOF'
+#!/bin/bash
+FUNCTION_DIR=$1
+FUNCTION_NAME=$2
 
-echo -e "${GREEN}✅ Infrastructure deployed${NC}"
-echo ""
+echo "Deploying $FUNCTION_NAME from $FUNCTION_DIR"
 
-# Update frontend configuration
-print_step "Updating Frontend Configuration"
-
-if [ ! -z "$WEBSOCKET_URL" ]; then
-    echo "REACT_APP_WEBSOCKET_URL=$WEBSOCKET_URL" > frontend/.env.production
-    echo "REACT_APP_HTTP_API_URL=$HTTP_API_URL" >> frontend/.env.production
-    echo -e "${GREEN}✅ Frontend configuration updated${NC}"
-else
-    echo -e "${YELLOW}⚠️  Could not retrieve WebSocket URL. Please update frontend/.env.production manually${NC}"
+# Create deployment package
+cd $FUNCTION_DIR
+if [ -f "requirements.txt" ]; then
+    pip install -r requirements.txt -t .
 fi
 
-echo ""
+# Create ZIP file
+zip -r ../${FUNCTION_NAME}.zip . -x "*.pyc" "__pycache__/*" "*.git*"
 
-# Deploy frontend (optional - would typically deploy to S3/CloudFront)
-if [ "$ENVIRONMENT" = "production" ]; then
-    print_step "Deploying Frontend to Production"
-    echo -e "${YELLOW}⚠️  Frontend deployment to S3/CloudFront not implemented in this script${NC}"
-    echo "You can manually deploy the frontend/build directory to your hosting service"
-fi
+# Update Lambda function
+aws lambda update-function-code \
+    --function-name $FUNCTION_NAME \
+    --zip-file fileb://../${FUNCTION_NAME}.zip
 
-# Summary
-print_step "Deployment Summary"
+echo "Deployed $FUNCTION_NAME successfully"
+EOF
+    
+    chmod +x deploy_lambda.sh
+    
+    # Deploy each Lambda function
+    local functions=(
+        "lambda_functions/checkin_processor:mindbridge-checkin-processor-$ENVIRONMENT"
+        "lambda_functions/checkin_retriever:mindbridge-checkin-retriever-$ENVIRONMENT"
+        "lambda_functions/dashboard:mindbridge-dashboard-$ENVIRONMENT"
+        "lambda_functions/emotion_fusion:mindbridge-emotion-fusion-$ENVIRONMENT"
+        "lambda_functions/health_check:mindbridge-health-check-$ENVIRONMENT"
+        "lambda_functions/realtime_call_analysis:mindbridge-realtime-call-analysis-$ENVIRONMENT"
+        "lambda_functions/text_analysis:mindbridge-text-analysis-$ENVIRONMENT"
+        "lambda_functions/user_auth:mindbridge-user-auth-$ENVIRONMENT"
+        "lambda_functions/video_analysis:mindbridge-video-analysis-$ENVIRONMENT"
+    )
+    
+    for func in "${functions[@]}"; do
+        IFS=':' read -r dir name <<< "$func"
+        print_status "Deploying $name..."
+        ./deploy_lambda.sh "$dir" "$name"
+    done
+    
+    # Clean up
+    rm deploy_lambda.sh
+    rm -f *.zip
+    
+    print_success "Lambda functions deployment completed"
+}
 
-echo -e "${GREEN}🎉 MindBridge AI deployment completed successfully!${NC}"
-echo ""
-echo "📊 Infrastructure Details:"
-echo "  • WebSocket URL: $WEBSOCKET_URL"
-echo "  • HTTP API URL: $HTTP_API_URL"
-echo "  • Environment: $ENVIRONMENT"
-echo "  • Region: $AWS_REGION"
-echo ""
-echo "🚀 Next Steps:"
-echo "  1. Test the WebSocket connection"
-echo "  2. Verify Lambda functions are working"
-echo "  3. Configure frontend environment variables"
-echo "  4. Start the frontend development server: cd frontend && npm start"
-echo ""
-echo "📚 Useful Commands:"
-echo "  • View logs: aws logs describe-log-groups --profile $AWS_PROFILE"
-echo "  • Update stack: cd infrastructure && cdk deploy --profile $AWS_PROFILE"
-echo "  • Destroy stack: cd infrastructure && cdk destroy --profile $AWS_PROFILE"
-echo ""
+# Function to run post-deployment tests
+run_post_deployment_tests() {
+    print_status "Running post-deployment tests..."
+    
+    # Get API Gateway URL
+    API_URL=$(aws cloudformation describe-stacks \
+        --stack-name MindBridgeStack \
+        --query 'Stacks[0].Outputs[?OutputKey==`ApiGatewayUrl`].OutputValue' \
+        --output text)
+    
+    # Test health endpoint
+    print_status "Testing health endpoint..."
+    if curl -f "$API_URL/health" >/dev/null 2>&1; then
+        print_success "Health endpoint is working"
+    else
+        print_error "Health endpoint is not working"
+        exit 1
+    fi
+    
+    # Get frontend URL
+    FRONTEND_URL=$(aws cloudformation describe-stacks \
+        --stack-name MindBridgeStack \
+        --query 'Stacks[0].Outputs[?OutputKey==`FrontendUrl`].OutputValue' \
+        --output text)
+    
+    # Test frontend
+    print_status "Testing frontend..."
+    if curl -f "$FRONTEND_URL" >/dev/null 2>&1; then
+        print_success "Frontend is accessible"
+    else
+        print_error "Frontend is not accessible"
+        exit 1
+    fi
+    
+    print_success "Post-deployment tests completed"
+}
 
-if [ "$ENVIRONMENT" = "development" ]; then
-    echo -e "${BLUE}💡 Development Mode:${NC}"
-    echo "  • Frontend will run on http://localhost:3000"
-    echo "  • WebSocket connection: $WEBSOCKET_URL"
-    echo "  • Start development: cd frontend && npm start"
-fi
+# Function to display usage
+usage() {
+    echo "Usage: $0 [OPTIONS]"
+    echo ""
+    echo "Options:"
+    echo "  -e, --environment ENV    Deployment environment (dev/prod) [default: dev]"
+    echo "  -f, --frontend-only      Deploy only frontend"
+    echo "  -i, --infrastructure-only Deploy only infrastructure"
+    echo "  -l, --lambda-only        Deploy only Lambda functions"
+    echo "  -t, --test-only          Run tests only"
+    echo "  -h, --help               Show this help message"
+    echo ""
+    echo "Examples:"
+    echo "  $0                        # Deploy everything to dev"
+    echo "  $0 -e prod               # Deploy everything to production"
+    echo "  $0 -f                    # Deploy only frontend"
+    echo "  $0 -i                    # Deploy only infrastructure"
+}
 
-echo -e "${GREEN}✨ Happy coding with MindBridge AI! ✨${NC}" 
+# Main script
+main() {
+    # Default values
+    ENVIRONMENT="dev"
+    DEPLOY_FRONTEND=true
+    DEPLOY_INFRASTRUCTURE=true
+    DEPLOY_LAMBDA=true
+    RUN_TESTS=true
+    
+    # Parse command line arguments
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -e|--environment)
+                ENVIRONMENT="$2"
+                shift 2
+                ;;
+            -f|--frontend-only)
+                DEPLOY_INFRASTRUCTURE=false
+                DEPLOY_LAMBDA=false
+                RUN_TESTS=false
+                shift
+                ;;
+            -i|--infrastructure-only)
+                DEPLOY_FRONTEND=false
+                DEPLOY_LAMBDA=false
+                RUN_TESTS=false
+                shift
+                ;;
+            -l|--lambda-only)
+                DEPLOY_FRONTEND=false
+                DEPLOY_INFRASTRUCTURE=false
+                RUN_TESTS=false
+                shift
+                ;;
+            -t|--test-only)
+                DEPLOY_FRONTEND=false
+                DEPLOY_INFRASTRUCTURE=false
+                DEPLOY_LAMBDA=false
+                shift
+                ;;
+            -h|--help)
+                usage
+                exit 0
+                ;;
+            *)
+                print_error "Unknown option: $1"
+                usage
+                exit 1
+                ;;
+        esac
+    done
+    
+    print_status "Starting MindBridge deployment..."
+    print_status "Environment: $ENVIRONMENT"
+    
+    # Check prerequisites
+    check_aws_config
+    check_node
+    check_python
+    
+    # Build frontend if needed
+    if [ "$DEPLOY_FRONTEND" = true ]; then
+        build_frontend
+    fi
+    
+    # Deploy infrastructure if needed
+    if [ "$DEPLOY_INFRASTRUCTURE" = true ]; then
+        deploy_infrastructure
+    fi
+    
+    # Deploy frontend if needed
+    if [ "$DEPLOY_FRONTEND" = true ]; then
+        deploy_frontend
+    fi
+    
+    # Deploy Lambda functions if needed
+    if [ "$DEPLOY_LAMBDA" = true ]; then
+        deploy_lambda_functions
+    fi
+    
+    # Run post-deployment tests if needed
+    if [ "$RUN_TESTS" = true ]; then
+        run_post_deployment_tests
+    fi
+    
+    print_success "Deployment completed successfully!"
+    
+    # Display URLs
+    if [ "$DEPLOY_INFRASTRUCTURE" = true ] || [ "$DEPLOY_FRONTEND" = true ]; then
+        echo ""
+        print_status "Deployment URLs:"
+        FRONTEND_URL=$(aws cloudformation describe-stacks \
+            --stack-name MindBridgeStack \
+            --query 'Stacks[0].Outputs[?OutputKey==`FrontendUrl`].OutputValue' \
+            --output text)
+        API_URL=$(aws cloudformation describe-stacks \
+            --stack-name MindBridgeStack \
+            --query 'Stacks[0].Outputs[?OutputKey==`ApiGatewayUrl`].OutputValue' \
+            --output text)
+        echo "Frontend: $FRONTEND_URL"
+        echo "API: $API_URL"
+    fi
+}
+
+# Run main function
+main "$@" 

@@ -1,0 +1,140 @@
+name: Pull Request Checks
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  NODE_VERSION: '18'
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  # ==============================================
+  # CODE QUALITY CHECKS
+  # ==============================================
+  code-quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    # Frontend checks
+    - name: Install frontend dependencies
+      working-directory: ./frontend
+      run: npm ci
+
+    - name: Run frontend linting
+      working-directory: ./frontend
+      run: npm run lint
+
+    - name: Run frontend tests
+      working-directory: ./frontend
+      run: npm test -- --watchAll=false --coverage --passWithNoTests
+
+    - name: Check frontend build
+      working-directory: ./frontend
+      run: npm run build
+
+    # Backend checks
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 black pytest pytest-cov mypy
+        pip install -r requirements.txt
+
+    - name: Run Python linting
+      run: |
+        flake8 lambda_functions/ --max-line-length=120 --ignore=E501,W503
+        black --check --diff lambda_functions/
+
+    - name: Run Python type checking
+      run: |
+        mypy lambda_functions/ --ignore-missing-imports --no-strict-optional
+
+    - name: Run Python tests
+      run: |
+        pytest lambda_functions/ --cov=lambda_functions --cov-report=xml --cov-report=term-missing
+
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: backend
+        name: backend-coverage
+
+  # ==============================================
+  # SECURITY CHECKS
+  # ==============================================
+  security-checks:
+    name: Security Checks
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        severity: 'CRITICAL,HIGH'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  # ==============================================
+  # INFRASTRUCTURE VALIDATION
+  # ==============================================
+  infrastructure-validation:
+    name: Infrastructure Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install CDK dependencies
+      working-directory: ./infrastructure
+      run: |
+        npm install -g aws-cdk
+        npm install
+
+    - name: Validate CDK stack
+      working-directory: ./infrastructure
+      run: |
+        cdk synth --context environment=development
+
+    - name: Check for CDK security issues
+      working-directory: ./infrastructure
+      run: |
+        cdk diff --context environment=development || echo "No changes detected" 

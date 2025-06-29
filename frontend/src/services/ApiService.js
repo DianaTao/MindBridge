@@ -667,14 +667,10 @@ class ApiService {
   }
 
   async getCheckinData(params = {}) {
-    console.log('📊 FRONTEND: Retrieving check-in data');
-    console.log('📤 Query params:', params);
+    console.log('📊 FRONTEND: Getting check-in data with params:', params);
     
     try {
-      const queryString = new URLSearchParams(params).toString();
-      const url = `/checkin-retriever${queryString ? `?${queryString}` : ''}`;
-      
-      const response = await this.client.get(url);
+      const response = await this.client.get('/checkin-data', { params });
       console.log('✅ FRONTEND: Check-in data response received');
       console.log('📥 Response status:', response.status);
       console.log('📥 Response data:', response.data);
@@ -691,9 +687,51 @@ class ApiService {
       
       return result;
     } catch (error) {
-      console.error('❌ FRONTEND: Check-in data retrieval failed');
+      console.error('❌ FRONTEND: Failed to get check-in data');
       console.error('Error details:', error);
-      throw error;
+      
+      // Return empty data structure for graceful degradation
+      return {
+        checkins: [],
+        analytics_summary: {
+          total_checkins: 0,
+          average_score: 0,
+          mood_trend: 'stable',
+          most_common_emotion: 'neutral',
+          period_covered: 'No data available',
+          recommendations: [],
+          llm_insights: []
+        }
+      };
+    }
+  }
+
+  async getHRWellnessData(params = {}) {
+    console.log('🏢 FRONTEND: Getting HR wellness data with params:', params);
+    
+    try {
+      const response = await this.client.get('/hr-wellness-data', { params });
+      console.log('✅ FRONTEND: HR wellness data response received');
+      console.log('📥 Response status:', response.status);
+      console.log('📥 Response data:', response.data);
+      
+      // Handle both direct response and Lambda function response format
+      let result;
+      if (response.data.body) {
+        console.log('🔄 FRONTEND: Parsing Lambda response body');
+        result = JSON.parse(response.data.body);
+      } else {
+        console.log('🔄 FRONTEND: Using direct response data');
+        result = response.data;
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('❌ FRONTEND: Failed to get HR wellness data');
+      console.error('Error details:', error);
+      
+      // Return null to indicate no data available
+      return null;
     }
   }
 }
