@@ -103,7 +103,25 @@ jobs:
 
     - name: Build frontend
       working-directory: ./frontend
-      run: npm run build
+      run: |
+        # Set fallback values for environment variables if secrets are not available
+        export REACT_APP_API_URL=${REACT_APP_API_URL:-"https://api.example.com"}
+        export REACT_APP_WS_URL=${REACT_APP_WS_URL:-"wss://ws.example.com"}
+        echo "Using API URL: $REACT_APP_API_URL"
+        echo "Using WebSocket URL: $REACT_APP_WS_URL"
+        
+        # Run build with error handling
+        if npm run build; then
+          echo "Frontend build completed successfully"
+        else
+          echo "Frontend build failed"
+          echo "Checking for common issues..."
+          echo "Node version: $(node --version)"
+          echo "NPM version: $(npm --version)"
+          echo "Current directory: $(pwd)"
+          echo "Directory contents: $(ls -la)"
+          exit 1
+        fi
       env:
         GENERATE_SOURCEMAP: false
         REACT_APP_API_URL: ${{ secrets.REACT_APP_API_URL }}
