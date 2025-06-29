@@ -19,6 +19,7 @@ sys.path.insert(0, './lambda_functions/video_analysis')
 sys.path.insert(0, './lambda_functions/audio_analysis')
 sys.path.insert(0, './lambda_functions/emotion_fusion')
 sys.path.insert(0, './lambda_functions/dashboard')
+sys.path.insert(0, './lambda_functions/checkin_processor')
 
 # Set environment variables for local development
 os.environ['EMOTIONS_TABLE'] = 'mindbridge-emotions-local'
@@ -28,6 +29,8 @@ os.environ['STAGE'] = 'local'
 os.environ['AWS_ACCESS_KEY_ID'] = 'test'
 os.environ['AWS_SECRET_ACCESS_KEY'] = 'test'
 os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
+os.environ['CHECKINS_TABLE'] = 'mindbridge-checkins-local'
+os.environ['DYNAMODB_ENDPOINT'] = 'http://localhost:8001'
 
 # Mock context for local testing
 class MockContext:
@@ -62,6 +65,7 @@ video_handler = None
 audio_handler = None
 fusion_handler = None
 dashboard_handler = None
+checkin_handler = None
 
 try:
     import handler as video_handler
@@ -90,6 +94,14 @@ try:
 except ImportError as e:
     logger.warning(f"⚠️ Could not import dashboard handler: {e}")
 
+try:
+    sys.path.insert(0, './lambda_functions/checkin_processor')
+    import handler as checkin_handler
+    logger.info("✅ Checkin processor handler imported")
+except ImportError as e:
+    logger.warning(f"⚠️ Could not import checkin handler: {e}")
+
+
 @app.route('/health', methods=['GET'])
 def health():
     """Health check endpoint"""
@@ -100,7 +112,8 @@ def health():
             'video': video_handler is not None,
             'audio': audio_handler is not None,
             'fusion': fusion_handler is not None,
-            'dashboard': dashboard_handler is not None
+            'dashboard': dashboard_handler is not None,
+            'checkin': checkin_handler is not None
         }
     })
 
@@ -194,6 +207,35 @@ def emotion_fusion():
         logger.error(f"Emotion fusion error: {e}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/checkin-processor', methods=['POST'])
+def checkin_processor():
+    """Check-in processor endpoint"""
+    if not checkin_handler:
+        return jsonify({'error': 'Check-in handler not available'}), 500
+    
+    event = {
+        'body': json.dumps(request.json),
+        'requestContext': {'requestId': 'local-test'},
+        'httpMethod': 'POST',
+        'path': '/checkin-processor'
+    }
+    
+    try:
+        result = checkin_handler.lambda_handler(event, MockContext())
+        
+        # Handle Lambda response format
+        if isinstance(result, dict) and 'body' in result:
+            # Extract body from Lambda response
+            body_data = json.loads(result['body'])
+            return jsonify(body_data)
+        else:
+            # Direct response
+            return jsonify(result)
+            
+    except Exception as e:
+        logger.error(f"Check-in processor error: {e}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/dashboard/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE'])
 def dashboard(path):
     """Dashboard endpoints"""
@@ -225,6 +267,7 @@ def test():
             'POST /video-analysis - Video emotion analysis',
             'POST /audio-analysis - Audio emotion analysis', 
             'POST /emotion-fusion - Multi-modal emotion fusion',
+            'POST /checkin-processor - Mental health check-in',
             'GET|POST /dashboard/<path> - Dashboard and analytics'
         ]
     })
@@ -232,12 +275,13 @@ def test():
 if __name__ == '__main__':
     print("🧠 Starting MindBridge Local Development Server...")
     print("📡 Available endpoints:")
-    print("  - GET  http://localhost:3001/health")
-    print("  - GET  http://localhost:3001/test")
-    print("  - POST http://localhost:3001/video-analysis")
-    print("  - POST http://localhost:3001/audio-analysis")
-    print("  - POST http://localhost:3001/emotion-fusion")
-    print("  - ANY  http://localhost:3001/dashboard/<path>")
-    print("🚀 Starting server on http://localhost:3001")
+    print("  - GET  http://localhost:8000/health")
+    print("  - GET  http://localhost:8000/test")
+    print("  - POST http://localhost:8000/video-analysis")
+    print("  - POST http://localhost:8000/audio-analysis")
+    print("  - POST http://localhost:8000/emotion-fusion")
+    print("  - POST http://localhost:8000/checkin-processor")
+    print("  - ANY  http://localhost:8000/dashboard/<path>")
+    print("🚀 Starting server on http://localhost:8000")
     
-    app.run(host='0.0.0.0', port=3001, debug=True) 
+    app.run(host='0.0.0.0', port=8000, debug=True) 

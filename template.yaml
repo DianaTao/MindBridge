@@ -1,0 +1,119 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: MindBridge AI - Local Development Template
+
+Globals:
+  Function:
+    Timeout: 30
+    Runtime: python3.9
+    Environment:
+      Variables:
+        CORS_ORIGIN: "*"
+  Api:
+    Cors:
+      AllowMethods: "'GET,POST,OPTIONS'"
+      AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+      AllowOrigin: "'*'"
+
+Resources:
+  # Health Check Function
+  HealthCheckFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda_functions/health_check/
+      Handler: handler.lambda_handler
+      Events:
+        HealthCheck:
+          Type: Api
+          Properties:
+            Path: /health
+            Method: get
+
+  # Video Analysis Function
+  VideoAnalysisFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda_functions/video_analysis/
+      Handler: handler.lambda_handler
+      Timeout: 60
+      Events:
+        VideoAnalysis:
+          Type: Api
+          Properties:
+            Path: /video-analysis
+            Method: post
+
+  # Text Analysis Function
+  TextAnalysisFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda_functions/text_analysis/
+      Handler: handler.lambda_handler
+      Events:
+        TextAnalysis:
+          Type: Api
+          Properties:
+            Path: /text-analysis
+            Method: post
+
+  # Emotion Fusion Function
+  EmotionFusionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda_functions/emotion_fusion/
+      Handler: handler.lambda_handler
+      Events:
+        EmotionFusion:
+          Type: Api
+          Properties:
+            Path: /emotion-fusion
+            Method: post
+
+  # Dashboard Function
+  DashboardFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda_functions/dashboard/
+      Handler: handler.lambda_handler
+      Events:
+        Dashboard:
+          Type: Api
+          Properties:
+            Path: /dashboard
+            Method: get
+        DashboardData:
+          Type: Api
+          Properties:
+            Path: /dashboard/{proxy+}
+            Method: any
+
+  # Real-time Call Analysis Function
+  RealTimeCallAnalysisFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda_functions/realtime_call_analysis/
+      Handler: handler.lambda_handler
+      Events:
+        RealTimeCall:
+          Type: Api
+          Properties:
+            Path: /realtime-call-analysis
+            Method: post
+
+  # Call Review Function
+  CallReviewFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda_functions/call_review/
+      Handler: handler.lambda_handler
+      Events:
+        CallReview:
+          Type: Api
+          Properties:
+            Path: /call-review
+            Method: post
+
+Outputs:
+  MindBridgeApi:
+    Description: "API Gateway endpoint URL for MindBridge"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/" 

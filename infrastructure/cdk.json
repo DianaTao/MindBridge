@@ -1,5 +1,5 @@
 {
-  "app": "python3 mindbridge-stack.py",
+  "app": "python mindbridge_stack.py",
   "watch": {
     "include": [
       "**"

@@ -1,0 +1,65 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetObject",
+                "s3:PutObject",
+                "s3:DeleteObject",
+                "s3:ListBucket",
+                "s3:HeadBucket"
+            ],
+            "Resource": [
+                "arn:aws:s3:::mindbridge-audio-chunks",
+                "arn:aws:s3:::mindbridge-audio-chunks/*"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "dynamodb:GetItem",
+                "dynamodb:PutItem",
+                "dynamodb:UpdateItem",
+                "dynamodb:DeleteItem",
+                "dynamodb:Query",
+                "dynamodb:Scan",
+                "dynamodb:DescribeTable"
+            ],
+            "Resource": [
+                "arn:aws:dynamodb:us-east-1:265974216988:table/mindbridge-emotions",
+                "arn:aws:dynamodb:us-east-1:265974216988:table/mindbridge-call-analysis"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "transcribe:StartTranscriptionJob",
+                "transcribe:GetTranscriptionJob",
+                "transcribe:ListTranscriptionJobs"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "comprehend:DetectSentiment",
+                "comprehend:DetectKeyPhrases",
+                "comprehend:DetectEntities",
+                "comprehend:BatchDetectSentiment",
+                "comprehend:BatchDetectKeyPhrases",
+                "comprehend:BatchDetectEntities"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "logs:CreateLogGroup",
+                "logs:CreateLogStream",
+                "logs:PutLogEvents"
+            ],
+            "Resource": "arn:aws:logs:us-east-1:265974216988:*"
+        }
+    ]
+}

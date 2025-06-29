@@ -82,7 +82,7 @@ const Brain = ({ className, ...props }) => (
   </svg>
 );
 
-const CameraCapture = ({ onEmotionDetected, onProcessingChange }) => {
+const CameraCapture = ({ onEmotionDetected, onProcessingChange, userEmail }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [hasPermission, setHasPermission] = useState(null);
   const [error, setError] = useState(null);
@@ -108,7 +108,7 @@ const CameraCapture = ({ onEmotionDetected, onProcessingChange }) => {
       onProcessingChange?.(true);
 
       console.log('📷 Requesting camera access...');
-      
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { 
           width: { ideal: 640 },

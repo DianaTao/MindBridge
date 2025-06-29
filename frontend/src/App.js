@@ -1,9 +1,12 @@
 import React, { useState } from "react";
 import CameraCapture from "./components/CameraCapture";
-import VoiceCapture from "./components/VoiceCapture";
 import TextAnalysis from "./components/TextAnalysis";
-import EmotionVisualization from "./components/EmotionVisualization";
 import Simple from "./components/Simple";
+import AutomatedCallDashboard from "./components/AutomatedCallDashboard";
+import RealTimeCallAnalysis from './components/RealTimeCallAnalysis';
+import MentalHealthCheckin from './components/MentalHealthCheckin';
+import EmotionAnalytics from './components/EmotionAnalytics';
+import EmailAuth from './components/EmailAuth';
 
 // UI Component replacements
 const Card = ({ children, className, ...props }) => (
@@ -67,12 +70,6 @@ const Video = ({ className, ...props }) => (
   </svg>
 );
 
-const Mic = ({ className, ...props }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" {...props}>
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-  </svg>
-);
-
 const FileText = ({ className, ...props }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" {...props}>
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -116,10 +113,28 @@ const Sparkles = ({ className, ...props }) => (
   </svg>
 );
 
+const Phone = ({ className, ...props }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" {...props}>
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+  </svg>
+);
+
+const Heart = ({ className, ...props }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" {...props}>
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+  </svg>
+);
+
 function MindBridgeApp() {
   const [activeTab, setActiveTab] = useState("video");
   const [emotionHistory, setEmotionHistory] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [userEmail, setUserEmail] = useState(null);
+
+  const handleAuthChange = (email) => {
+    setUserEmail(email);
+    console.log('🔐 Authentication changed:', email ? `User: ${email}` : 'No user');
+  };
 
   const handleEmotionDetected = (emotion, modality) => {
     const emotionData = {
@@ -151,6 +166,11 @@ function MindBridgeApp() {
   };
 
   const recentEmotion = emotionHistory[0];
+
+  // If user is not authenticated, show auth screen
+  if (!userEmail) {
+    return <EmailAuth onAuthChange={handleAuthChange} />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 relative overflow-hidden">
@@ -198,6 +218,14 @@ function MindBridgeApp() {
             </div>
 
             <div className="flex items-center space-x-6">
+              {/* User Email Display */}
+              <div className="flex items-center space-x-3 bg-white/60 backdrop-blur-sm rounded-full px-4 py-2 border border-blue-200/50">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-lg shadow-green-500/50" />
+                <span className="text-slate-700 text-sm font-medium font-['Courier_New']">
+                  {userEmail}
+                </span>
+              </div>
+
               {recentEmotion && (
                 <div className="flex items-center space-x-3 bg-white/60 backdrop-blur-sm rounded-full px-4 py-2 border border-blue-200/50 animate-neural-scan">
                   <Activity className="h-4 w-4 text-green-500 animate-pulse" />
@@ -226,7 +254,7 @@ function MindBridgeApp() {
 
       <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-          <TabsList className="grid w-full grid-cols-5 bg-white/80 backdrop-blur-xl border border-blue-200/50 rounded-2xl p-2">
+          <TabsList className="grid w-full grid-cols-6 bg-white/80 backdrop-blur-xl border border-blue-200/50 rounded-2xl p-2">
             <TabsTrigger
               value="video"
               className={`flex items-center space-x-2 rounded-xl transition-all duration-300 font-['Courier_New'] ${
@@ -236,16 +264,6 @@ function MindBridgeApp() {
             >
               <Video className="h-4 w-4" />
               <span className="hidden sm:inline font-medium">Video</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="voice"
-              className={`flex items-center space-x-2 rounded-xl transition-all duration-300 font-['Courier_New'] ${
-                activeTab === "voice" ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white" : "text-slate-600 hover:text-slate-800"
-              }`}
-              onClick={() => setActiveTab("voice")}
-            >
-              <Mic className="h-4 w-4" />
-              <span className="hidden sm:inline font-medium">Voice</span>
             </TabsTrigger>
             <TabsTrigger
               value="text"
@@ -258,16 +276,6 @@ function MindBridgeApp() {
               <span className="hidden sm:inline font-medium">Text</span>
             </TabsTrigger>
             <TabsTrigger
-              value="visualization"
-              className={`flex items-center space-x-2 rounded-xl transition-all duration-300 font-['Courier_New'] ${
-                activeTab === "visualization" ? "bg-gradient-to-r from-orange-500 to-red-600 text-white" : "text-slate-600 hover:text-slate-800"
-              }`}
-              onClick={() => setActiveTab("visualization")}
-            >
-              <BarChart3 className="h-4 w-4" />
-              <span className="hidden sm:inline font-medium">Results</span>
-            </TabsTrigger>
-            <TabsTrigger
               value="simple"
               className={`flex items-center space-x-2 rounded-xl transition-all duration-300 font-['Courier_New'] ${
                 activeTab === "simple" ? "bg-gradient-to-r from-indigo-500 to-purple-600 text-white" : "text-slate-600 hover:text-slate-800"
@@ -276,6 +284,36 @@ function MindBridgeApp() {
             >
               <Brain className="h-4 w-4" />
               <span className="hidden sm:inline font-medium">Test</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="realtime-call"
+              className={`flex items-center space-x-2 rounded-xl transition-all duration-300 font-['Courier_New'] ${
+                activeTab === "realtime-call" ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white" : "text-slate-600 hover:text-slate-800"
+              }`}
+              onClick={() => setActiveTab("realtime-call")}
+            >
+              <Phone className="h-4 w-4" />
+              <span className="hidden sm:inline font-medium">Live Call</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="mental-health"
+              className={`flex items-center space-x-2 rounded-xl transition-all duration-300 font-['Courier_New'] ${
+                activeTab === "mental-health" ? "bg-gradient-to-r from-red-500 to-pink-600 text-white" : "text-slate-600 hover:text-slate-800"
+              }`}
+              onClick={() => setActiveTab("mental-health")}
+            >
+              <Heart className="h-4 w-4" />
+              <span className="hidden sm:inline font-medium">Wellness</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="emotion-analytics"
+              className={`flex items-center space-x-2 rounded-xl transition-all duration-300 font-['Courier_New'] ${
+                activeTab === "emotion-analytics" ? "bg-gradient-to-r from-purple-500 to-pink-600 text-white" : "text-slate-600 hover:text-slate-800"
+              }`}
+              onClick={() => setActiveTab("emotion-analytics")}
+            >
+              <BarChart3 className="h-4 w-4" />
+              <span className="hidden sm:inline font-medium">Emotion Analytics</span>
             </TabsTrigger>
           </TabsList>
 
@@ -301,6 +339,7 @@ function MindBridgeApp() {
                       <CameraCapture
                         onEmotionDetected={(emotion) => handleEmotionDetected(emotion, "video")}
                         onProcessingChange={setIsProcessing}
+                        userEmail={userEmail}
                       />
                       
                       {/* Neural Scan Active Status - Moved here from sidebar */}
@@ -324,27 +363,6 @@ function MindBridgeApp() {
                   </div>
                 )}
 
-                {activeTab === "voice" && (
-                  <div className="relative">
-                    <CardHeader className="border-b border-blue-200/50">
-                      <CardTitle className="flex items-center space-x-3 text-slate-800 font-['Courier_New']">
-                        <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
-                          <Mic className="h-5 w-5 text-white" />
-                        </div>
-                        <span className="text-xl">Voice Emotion Analysis</span>
-                        <div className="flex-1" />
-                        <Sparkles className="h-5 w-5 text-green-500 animate-pulse" />
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-8">
-                      <VoiceCapture
-                        onEmotionDetected={(emotion) => handleEmotionDetected(emotion, "audio")}
-                        onProcessingChange={setIsProcessing}
-                      />
-                    </CardContent>
-                  </div>
-                )}
-
                 {activeTab === "text" && (
                   <div className="relative">
                     <CardHeader className="border-b border-blue-200/50">
@@ -361,25 +379,8 @@ function MindBridgeApp() {
                       <TextAnalysis
                         onEmotionDetected={(emotion) => handleEmotionDetected(emotion, "text")}
                         onProcessingChange={setIsProcessing}
+                        userEmail={userEmail}
                       />
-                    </CardContent>
-                  </div>
-                )}
-
-                {activeTab === "visualization" && (
-                  <div className="relative">
-                    <CardHeader className="border-b border-blue-200/50">
-                      <CardTitle className="flex items-center space-x-3 text-slate-800 font-['Courier_New']">
-                        <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
-                          <BarChart3 className="h-5 w-5 text-white" />
-                        </div>
-                        <span className="text-xl">Emotion Analytics</span>
-                        <div className="flex-1" />
-                        <Sparkles className="h-5 w-5 text-orange-500 animate-pulse" />
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-8">
-                      <EmotionVisualization emotionHistory={emotionHistory} />
                     </CardContent>
                   </div>
                 )}
@@ -398,6 +399,60 @@ function MindBridgeApp() {
                     </CardHeader>
                     <CardContent className="p-8">
                       <Simple />
+                    </CardContent>
+                  </div>
+                )}
+
+                {activeTab === "realtime-call" && (
+                  <div className="relative">
+                    <CardHeader className="border-b border-blue-200/50">
+                      <CardTitle className="flex items-center space-x-3 text-slate-800 font-['Courier_New']">
+                        <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
+                          <Phone className="h-5 w-5 text-white" />
+                        </div>
+                        <span className="text-xl">Live Call</span>
+                        <div className="flex-1" />
+                        <Sparkles className="h-5 w-5 text-green-500 animate-pulse" />
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-8">
+                      <RealTimeCallAnalysis userEmail={userEmail} />
+                    </CardContent>
+                  </div>
+                )}
+
+                {activeTab === "mental-health" && (
+                  <div className="relative">
+                    <CardHeader className="border-b border-blue-200/50">
+                      <CardTitle className="flex items-center space-x-3 text-slate-800 font-['Courier_New']">
+                        <div className="w-10 h-10 bg-gradient-to-r from-red-500 to-pink-600 rounded-lg flex items-center justify-center">
+                          <Heart className="h-5 w-5 text-white" />
+                        </div>
+                        <span className="text-xl">Mental Health Check-in</span>
+                        <div className="flex-1" />
+                        <Sparkles className="h-5 w-5 text-red-500 animate-pulse" />
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-8">
+                      <MentalHealthCheckin userEmail={userEmail} />
+                    </CardContent>
+                  </div>
+                )}
+
+                {activeTab === "emotion-analytics" && (
+                  <div className="relative">
+                    <CardHeader className="border-b border-blue-200/50">
+                      <CardTitle className="flex items-center space-x-3 text-slate-800 font-['Courier_New']">
+                        <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg flex items-center justify-center">
+                          <BarChart3 className="h-5 w-5 text-white" />
+                        </div>
+                        <span className="text-xl">Emotion Analytics</span>
+                        <div className="flex-1" />
+                        <Sparkles className="h-5 w-5 text-purple-500 animate-pulse" />
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-8">
+                      <EmotionAnalytics emotionHistory={emotionHistory} userEmail={userEmail} />
                     </CardContent>
                   </div>
                 )}

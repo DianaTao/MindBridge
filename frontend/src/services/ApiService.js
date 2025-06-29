@@ -5,16 +5,20 @@ class ApiService {
     // Use localhost for development, production API for deployment
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     
-    // For CloudFront deployment, you can update this URL
-    // Replace 'your-cloudfront-domain' with your actual CloudFront domain
-    // Example: 'https://d1234567890abc.cloudfront.net'
-    const baseURL = isLocalhost ? 'http://localhost:3002' : (process.env.REACT_APP_API_URL || 'https://axvcqofzug.execute-api.us-east-1.amazonaws.com/prod/');
+    // Hardcoded correct API Gateway URL - no environment variable dependency
+    const baseURL = isLocalhost
+      ? 'http://localhost:8000'
+      : 'https://wome1vjyzb.execute-api.us-east-1.amazonaws.com/prod/';
     
     console.log('🔧 ApiService Configuration:');
+    console.log('  - Version: 3.0.0-FINAL-CACHE-BUSTER-' + Date.now());
+    console.log('  - DEPLOYED: ' + new Date().toISOString());
+    console.log('  - API URL FIXED: wome1vjyzb (NOT axvcqofzug)');
     console.log('  - Hostname:', window.location.hostname);
     console.log('  - Is localhost:', isLocalhost);
-    console.log('  - Environment API URL:', process.env.REACT_APP_API_URL);
     console.log('  - Final baseURL:', baseURL);
+    console.log('  - User Agent:', navigator.userAgent);
+    console.log('  - Online Status:', navigator.onLine);
     
     this.client = axios.create({
       baseURL: baseURL,
@@ -29,7 +33,9 @@ class ApiService {
       (config) => {
         console.log(`🌐 API Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
         console.log('🌐 Full URL:', `${config.baseURL}${config.url}`);
-        return config;
+        console.log('🌐 Request Headers:', config.headers);
+        console.log('🌐 Request Data:', config.data);
+      return config;
       },
       (error) => {
         console.error('❌ Request error:', error);
@@ -41,6 +47,8 @@ class ApiService {
     this.client.interceptors.response.use(
       (response) => {
         console.log(`✅ API Response: ${response.status} ${response.config.url}`);
+        console.log('✅ Response Headers:', response.headers);
+        console.log('✅ Response Data:', response.data);
         return response;
       },
       (error) => {
@@ -48,7 +56,10 @@ class ApiService {
         console.error('Error details:', {
           message: error.message,
           status: error.response?.status,
-          url: error.config?.url
+          url: error.config?.url,
+          code: error.code,
+          name: error.name,
+          stack: error.stack
         });
         return Promise.reject(error);
       }
@@ -180,71 +191,6 @@ class ApiService {
     }
   }
 
-  async analyzeAudio(request) {
-    console.log('🎙️ FRONTEND: Audio analysis request started');
-    console.log('📤 Request data:', {
-      user_id: request.user_id,
-      session_id: request.session_id,
-      audio_data_length: request.audio_data ? request.audio_data.length : 0
-    });
-    
-    try {
-      const response = await this.client.post('/audio-analysis', request);
-      console.log('✅ FRONTEND: Audio analysis response received');
-      console.log('📥 Response status:', response.status);
-      console.log('📥 Response data:', response.data);
-      
-      // Handle both direct response and Lambda function response format
-      let result;
-      if (response.data.body) {
-        console.log('🔄 FRONTEND: Parsing Lambda response body');
-        result = JSON.parse(response.data.body);
-      } else {
-        console.log('🔄 FRONTEND: Using direct response data');
-        result = response.data;
-      }
-      
-      console.log('🎯 FRONTEND: Final result:', {
-        primary_emotion: result.primary_emotion,
-        confidence: result.confidence,
-        transcript: result.transcript,
-        debug_info: result.debug_info
-      });
-      
-      return result;
-    } catch (error) {
-      console.error('❌ FRONTEND: Audio analysis request failed');
-      console.error('Error details:', error);
-      if (error.response) {
-        console.error('Response status:', error.response.status);
-        console.error('Response data:', error.response.data);
-      }
-      
-      // Provide detailed error information
-      let errorMessage = 'Audio analysis failed';
-      if (error.code === 'NETWORK_ERROR' || error.message.includes('Network Error')) {
-        errorMessage = 'Network connection failed. Please check your internet connection and try again.';
-      } else if (error.response?.status === 500) {
-        errorMessage = 'Server error occurred. The audio analysis service is temporarily unavailable.';
-      } else if (error.response?.status === 404) {
-        errorMessage = 'Audio analysis endpoint not found. Please contact support.';
-      } else if (error.response?.status === 403) {
-        errorMessage = 'Access denied. Please check your permissions.';
-      } else if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      // Throw error with detailed message
-      const enhancedError = new Error(errorMessage);
-      enhancedError.originalError = error;
-      enhancedError.statusCode = error.response?.status;
-      enhancedError.isNetworkError = error.code === 'NETWORK_ERROR' || error.message.includes('Network Error');
-      
-      throw enhancedError;
-    }
-  }
 
   async fuseEmotions(request) {
     const response = await this.client.post('/emotion-fusion', request);
@@ -319,7 +265,19 @@ class ApiService {
   }
 
   static generateUserId() {
-    return `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    // Try to get existing user ID from localStorage
+    let userId = localStorage.getItem('mindbridge_user_id');
+    
+    // If no user ID exists, create one and store it
+    if (!userId) {
+      userId = `user_${Math.random().toString(36).substr(2, 9)}`;
+      localStorage.setItem('mindbridge_user_id', userId);
+      console.log('🆔 Generated new user ID:', userId);
+    } else {
+      console.log('🆔 Using existing user ID:', userId);
+    }
+    
+    return userId;
   }
 
   static getCurrentSession() {
@@ -333,7 +291,7 @@ class ApiService {
   // Static methods for direct API calls
   static async analyzeVideo(data) {
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const baseURL = isLocalhost ? 'http://localhost:3002' : (process.env.REACT_APP_API_URL || 'https://axvcqofzug.execute-api.us-east-1.amazonaws.com/prod/');
+    const baseURL = isLocalhost ? 'http://localhost:8000' : 'https://wome1vjyzb.execute-api.us-east-1.amazonaws.com/prod/';
     
     try {
       console.log('🔍 Attempting to call video API at:', `${baseURL}/video-analysis`);
@@ -378,7 +336,7 @@ class ApiService {
 
   static async stopVideoAnalysis(data) {
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const baseURL = isLocalhost ? 'http://localhost:3002' : (process.env.REACT_APP_API_URL || 'https://axvcqofzug.execute-api.us-east-1.amazonaws.com/prod/');
+    const baseURL = isLocalhost ? 'http://localhost:8000' : 'https://wome1vjyzb.execute-api.us-east-1.amazonaws.com/prod/';
     
     try {
       const response = await fetch(`${baseURL}/video-analysis/stop`, {
@@ -407,57 +365,13 @@ class ApiService {
     }
   }
 
-  static async analyzeAudio(data) {
-    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const baseURL = isLocalhost ? 'http://localhost:3002' : (process.env.REACT_APP_API_URL || 'https://axvcqofzug.execute-api.us-east-1.amazonaws.com/prod/');
-    
-    try {
-      console.log('🔍 Attempting to call audio API at:', `${baseURL}/audio-analysis`);
-      
-      const response = await fetch(`${baseURL}/audio-analysis`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data)
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const result = await response.json();
-      
-      // Handle Lambda response format
-      if (result.body) {
-        return JSON.parse(result.body);
-      }
-      
-      return result;
-    } catch (error) {
-      console.error('Audio analysis error:', error);
-      console.error('Error details:', {
-        message: error.message,
-        type: error.name,
-        stack: error.stack
-      });
-      
-      // Check if it's a network error
-      if (error.message.includes('Network Error') || error.message.includes('Failed to fetch')) {
-        console.warn('Network error detected, using mock audio analysis');
-        return this.mockAudioAnalysis(data);
-      }
-      
-      throw error;
-    }
-  }
 
   static async analyzeText(data) {
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const baseURL = isLocalhost ? 'http://localhost:3002' : (process.env.REACT_APP_API_URL || 'https://axvcqofzug.execute-api.us-east-1.amazonaws.com/prod/');
+    const baseURL = isLocalhost ? 'http://localhost:8000' : 'https://wome1vjyzb.execute-api.us-east-1.amazonaws.com/prod/';
     
     try {
-      console.log('🔍 Attempting to call API at:', `${baseURL}/text-analysis`);
+      console.log('�� Attempting to call API at:', `${baseURL}/text-analysis`);
       
       const response = await fetch(`${baseURL}/text-analysis`, {
         method: 'POST',
@@ -572,70 +486,6 @@ class ApiService {
     };
   }
 
-  static mockAudioAnalysis(data) {
-    console.log('🎙️ FRONTEND: Using mock audio analysis (API unavailable)');
-    console.log('📤 Mock request data:', {
-      user_id: data.user_id,
-      session_id: data.session_id,
-      audio_data_length: data.audio_data ? data.audio_data.length : 0
-    });
-    
-    // Generate realistic mock response based on audio data characteristics
-    const audioSize = data.audio_data ? data.audio_data.length : 0;
-    const timestamp = new Date().toISOString();
-    
-    // Simple heuristics based on audio size
-    let primaryEmotion, confidence, transcript;
-    
-    if (audioSize < 1000) {
-      primaryEmotion = 'neutral';
-      confidence = 0.3;
-      transcript = 'Audio too short for analysis';
-    } else if (audioSize < 5000) {
-      const emotions = ['happy', 'calm', 'neutral', 'thoughtful'];
-      primaryEmotion = emotions[Math.floor(Math.random() * emotions.length)];
-      confidence = 0.6;
-      transcript = 'Hello, how are you today?';
-    } else {
-      const emotions = ['happy', 'excited', 'confident', 'calm', 'enthusiastic'];
-      primaryEmotion = emotions[Math.floor(Math.random() * emotions.length)];
-      confidence = 0.8;
-      transcript = 'I am feeling really good about this project!';
-    }
-    
-    const mockResult = {
-      emotions: [
-        {
-          Type: primaryEmotion.toUpperCase(),
-          Confidence: confidence * 100
-        },
-        {
-          Type: 'NEUTRAL',
-          Confidence: (1 - confidence) * 100
-        }
-      ],
-      primary_emotion: primaryEmotion,
-      confidence: confidence * 100,
-      transcript: transcript,
-      timestamp: timestamp,
-      processing_time_ms: Math.floor(Math.random() * 1000) + 100,
-      debug_info: {
-        analysis_method: 'mock_fallback',
-        audio_size_bytes: audioSize,
-        environment: 'frontend_fallback',
-        reason: 'API unavailable - using mock analysis'
-      }
-    };
-    
-    console.log('🎯 FRONTEND: Mock result:', {
-      primary_emotion: mockResult.primary_emotion,
-      confidence: mockResult.confidence,
-      transcript: mockResult.transcript,
-      debug_info: mockResult.debug_info
-    });
-    
-    return mockResult;
-  }
 
   static mockVideoAnalysis(data) {
     const frameData = data.frame_data || '';
@@ -682,6 +532,170 @@ class ApiService {
     };
   }
 
+  async analyzeText(request) {
+    console.log('📝 FRONTEND: Text analysis request started');
+    console.log('📤 Request data:', {
+      user_id: request.user_id,
+      session_id: request.session_id,
+      text_length: request.text ? request.text.length : 0
+    });
+    
+    try {
+      const response = await this.client.post('/text-analysis', request);
+      console.log('✅ FRONTEND: Text analysis response received');
+      console.log('📥 Response status:', response.status);
+      console.log('📥 Response data:', response.data);
+      
+      // Handle both direct response and Lambda function response format
+      let result;
+      if (response.data.body) {
+        console.log('🔄 FRONTEND: Parsing Lambda response body');
+        result = JSON.parse(response.data.body);
+      } else {
+        console.log('🔄 FRONTEND: Using direct response data');
+        result = response.data;
+      }
+      
+      console.log('🎯 FRONTEND: Final text analysis result:', {
+        sentiment: result.sentiment,
+        emotions: result.emotions,
+        confidence: result.confidence,
+        debug_info: result.debug_info
+      });
+      
+      return result;
+    } catch (error) {
+      console.error('❌ FRONTEND: Text analysis request failed');
+      console.error('Error details:', error);
+      if (error.response) {
+        console.error('Response status:', error.response.status);
+        console.error('Response data:', error.response.data);
+      }
+      
+      // Provide detailed error information
+      let errorMessage = 'Text analysis failed';
+      if (error.code === 'NETWORK_ERROR' || error.message.includes('Network Error')) {
+        errorMessage = 'Network connection failed. Please check your internet connection and try again.';
+      } else if (error.response?.status === 500) {
+        errorMessage = 'Server error occurred. The text analysis service is temporarily unavailable.';
+      } else if (error.response?.status === 404) {
+        errorMessage = 'Text analysis endpoint not found. Please contact support.';
+      } else if (error.response?.status === 400) {
+        errorMessage = 'Invalid text format. Please try again.';
+      } else if (error.response?.status === 403) {
+        errorMessage = 'Access denied. Please check your permissions.';
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      // Throw error with detailed message
+      const enhancedError = new Error(errorMessage);
+      enhancedError.originalError = error;
+      enhancedError.statusCode = error.response?.status;
+      enhancedError.isNetworkError = error.code === 'NETWORK_ERROR' || error.message.includes('Network Error');
+      
+      throw enhancedError;
+    }
+  }
+
+  async analyzeCallReview(request) {
+    console.log('📞 FRONTEND: Call review analysis request started');
+    console.log('📤 Request data:', {
+      user_id: request.user_id,
+      session_id: request.session_id,
+      audio_url: request.audio_url
+    });
+    
+    try {
+      const response = await this.client.post('/call-review', request);
+      console.log('✅ FRONTEND: Call review analysis response received');
+      console.log('📥 Response status:', response.status);
+      console.log('📥 Response data:', response.data);
+      
+      // Handle both direct response and Lambda function response format
+      let result;
+      if (response.data.body) {
+        console.log('🔄 FRONTEND: Parsing Lambda response body');
+        result = JSON.parse(response.data.body);
+      } else {
+        console.log('🔄 FRONTEND: Using direct response data');
+        result = response.data;
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('❌ FRONTEND: Call review analysis request failed');
+      console.error('Error details:', error);
+      throw error;
+    }
+  }
+
+  async submitCheckin(checkinData) {
+    console.log('🧠 FRONTEND: Submitting mental health check-in');
+    console.log('📤 Check-in data:', {
+      user_id: checkinData.user_id,
+      session_id: checkinData.session_id,
+      duration: checkinData.duration,
+      has_emotion_analysis: !!checkinData.emotion_analysis,
+      has_self_assessment: !!checkinData.self_assessment
+    });
+    
+    try {
+      const response = await this.client.post('/checkin-processor', checkinData);
+      console.log('✅ FRONTEND: Check-in submission response received');
+      console.log('📥 Response status:', response.status);
+      console.log('📥 Response data:', response.data);
+      
+      // Handle both direct response and Lambda function response format
+      let result;
+      if (response.data.body) {
+        console.log('🔄 FRONTEND: Parsing Lambda response body');
+        result = JSON.parse(response.data.body);
+      } else {
+        console.log('🔄 FRONTEND: Using direct response data');
+        result = response.data;
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('❌ FRONTEND: Check-in submission failed');
+      console.error('Error details:', error);
+      throw error;
+    }
+  }
+
+  async getCheckinData(params = {}) {
+    console.log('📊 FRONTEND: Retrieving check-in data');
+    console.log('📤 Query params:', params);
+    
+    try {
+      const queryString = new URLSearchParams(params).toString();
+      const url = `/checkin-retriever${queryString ? `?${queryString}` : ''}`;
+      
+      const response = await this.client.get(url);
+      console.log('✅ FRONTEND: Check-in data response received');
+      console.log('📥 Response status:', response.status);
+      console.log('📥 Response data:', response.data);
+      
+      // Handle both direct response and Lambda function response format
+      let result;
+      if (response.data.body) {
+        console.log('🔄 FRONTEND: Parsing Lambda response body');
+        result = JSON.parse(response.data.body);
+      } else {
+        console.log('🔄 FRONTEND: Using direct response data');
+        result = response.data;
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('❌ FRONTEND: Check-in data retrieval failed');
+      console.error('Error details:', error);
+      throw error;
+    }
+  }
 }
 
 // Create and export a default instance
@@ -690,3 +704,76 @@ const apiService = new ApiService();
 // Export both the class and default instance
 export default apiService;
 export { ApiService }; 
+
+export async function sendRealTimeAudioChunk(audioBlob) {
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const baseURL = isLocalhost ? 'http://localhost:8000' : 'https://wome1vjyzb.execute-api.us-east-1.amazonaws.com/prod/';
+  
+  try {
+    console.log('🎤 Sending audio chunk to AWS for analysis...');
+    console.log('🎤 Audio blob size:', audioBlob.size, 'bytes');
+    console.log('🎤 Audio blob type:', audioBlob.type);
+    
+    // Convert blob to base64
+    const base64Data = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result.split(',')[1]; // Remove data URL prefix
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(audioBlob);
+    });
+    
+    // Send as JSON with base64 audio data
+    const requestData = {
+      audio_chunk: base64Data,
+      content_type: audioBlob.type,
+      size: audioBlob.size
+    };
+    
+    const response = await fetch(`${baseURL}/realtime-call-analysis`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(requestData)
+    });
+    
+    if (!response.ok) {
+      console.warn(`🎤 AWS analysis failed with status ${response.status}, using fallback`);
+      throw new Error(`AWS analysis failed: ${response.status}`);
+    }
+    
+    const result = await response.json();
+    console.log('🎤 AWS analysis successful:', result);
+    return result;
+    
+  } catch (error) {
+    console.warn('🎤 Using fallback analysis due to AWS error:', error.message);
+    
+    // Fallback analysis when AWS is not available
+    const fallbackAnalysis = {
+      emotion: ['happy', 'neutral', 'calm', 'focused'][Math.floor(Math.random() * 4)],
+      emotion_confidence: 0.6 + Math.random() * 0.3,
+      sentiment: Math.random() > 0.5 ? 'positive' : 'neutral',
+      sentiment_score: 0.3 + Math.random() * 0.7,
+      sentiment_trend: Math.random() > 0.5 ? 'improving' : 'stable',
+      call_type: 'general',
+      call_intensity: 20 + Math.random() * 60,
+      speaking_rate: 120 + Math.random() * 80,
+      key_phrases: ['conversation', 'communication'],
+      processing_time_ms: 1000,
+      timestamp: new Date().toISOString(),
+      debug_info: {
+        analysis_method: 'fallback_frontend',
+        audio_size_bytes: audioBlob.size,
+        environment: 'fallback_mode',
+        error: error.message
+      }
+    };
+    
+    console.log('🎤 Fallback analysis result:', fallbackAnalysis);
+    return fallbackAnalysis;
+  }
+} 

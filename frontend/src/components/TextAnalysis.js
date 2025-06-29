@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import ApiService from '../services/ApiService';
 
-const TextAnalysis = ({ onEmotionDetected, onProcessingChange, className = '' }) => {
+const TextAnalysis = ({ onEmotionDetected, onProcessingChange, userEmail, className = '' }) => {
   const [text, setText] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [lastResult, setLastResult] = useState(null);
@@ -272,9 +272,40 @@ const TextAnalysis = ({ onEmotionDetected, onProcessingChange, className = '' })
               </div>
             )}
 
+            {/* LLM Analysis Section */}
+            {lastResult.llm_analysis && (
+              <div className="space-y-3">
+                {/* Emotional Context */}
+                {lastResult.llm_analysis.emotional_context && (
+                  <div className="p-3 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200">
+                    <span className="font-medium block mb-2 text-purple-800">🧠 AI Emotional Context:</span>
+                    <p className="text-purple-700 text-sm">{lastResult.llm_analysis.emotional_context}</p>
+                  </div>
+                )}
+
+                {/* AI Recommendations */}
+                {lastResult.llm_analysis.recommendations && (
+                  <div className="p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
+                    <span className="font-medium block mb-2 text-green-800">💡 AI Recommendations:</span>
+                    <p className="text-green-700 text-sm">{lastResult.llm_analysis.recommendations}</p>
+                  </div>
+                )}
+
+                {/* AI Generated Badge */}
+                <div className="flex items-center justify-center">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    🤖 AI Generated Analysis
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Analysis Metadata */}
             <div className="text-xs text-gray-500 text-center pt-2">
               Analyzed at {new Date(lastResult.timestamp || Date.now()).toLocaleTimeString()}
+              {lastResult.debug_info?.analysis_method === 'bedrock_llm' && (
+                <span className="block text-blue-600">Using AWS Bedrock LLM</span>
+              )}
             </div>
           </div>
         </div>

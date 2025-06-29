@@ -517,7 +517,7 @@ def send_message_to_connection(connection_id: str, message: Dict[str, Any]) -> N
     except apigateway.exceptions.GoneException:
         logger.warning(f"Connection {connection_id} is no longer available")
     except Exception as e:
-        logger.error(f"Error sending message to connection {connection_id}: {str(e)}")
+        logger.error(f"Error sending message to connection {connection_id}: {str(e)}") 
 
 def handle_health_check() -> Dict[str, Any]:
     """

@@ -38,6 +38,14 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         logger.info(f"Request ID: {event.get('requestContext', {}).get('requestId')}")
         logger.info(f"Event keys: {list(event.keys())}")
         
+        # Check if this is a stop request
+        path = event.get('path', '')
+        logger.info(f"Request path: {path}")
+        
+        if path.endswith('/stop'):
+            logger.info("⏹️ STOP REQUEST DETECTED")
+            return handle_stop_request(event, context)
+        
         # Parse incoming video frame data
         body = json.loads(event.get('body', '{}'))
         logger.info(f"Body keys: {list(body.keys())}")
@@ -125,6 +133,55 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         import traceback
         logger.error(f"Traceback: {traceback.format_exc()}")
         return create_error_response(500, f"Internal server error: {str(e)}")
+
+def handle_stop_request(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """
+    Handle video analysis stop requests
+    """
+    try:
+        logger.info("⏹️ HANDLING STOP REQUEST")
+        
+        # Parse request body
+        body = json.loads(event.get('body', '{}'))
+        user_id = body.get('user_id', 'anonymous')
+        session_id = body.get('session_id', 'default')
+        status = body.get('status', 'stopped')
+        
+        logger.info(f"Stop request - User ID: {user_id}, Session ID: {session_id}, Status: {status}")
+        
+        # Store stop event in DynamoDB
+        try:
+            table = dynamodb.Table(EMOTIONS_TABLE)
+            stop_record = {
+                'user_id': user_id,
+                'timestamp': datetime.utcnow().isoformat(),
+                'session_id': session_id,
+                'event_type': 'camera_stopped',
+                'status': status,
+                'ttl': int(datetime.utcnow().timestamp()) + (7 * 24 * 60 * 60)  # 7 days TTL
+            }
+            
+            table.put_item(Item=stop_record)
+            logger.info("✅ Stop event stored in DynamoDB")
+            
+        except Exception as db_error:
+            logger.warning(f"⚠️ Failed to store stop event: {str(db_error)}")
+        
+        # Return success response
+        response_data = {
+            'status': 'stopped',
+            'message': 'Camera stopped successfully',
+            'user_id': user_id,
+            'session_id': session_id,
+            'timestamp': datetime.utcnow().isoformat()
+        }
+        
+        logger.info("✅ STOP REQUEST HANDLED SUCCESSFULLY")
+        return create_success_response(response_data)
+        
+    except Exception as e:
+        logger.error(f"❌ ERROR in stop request: {str(e)}")
+        return create_error_response(500, f"Failed to stop camera: {str(e)}")
 
 def analyze_facial_emotions(image_bytes: bytes) -> List[Dict[str, Any]]:
     """

@@ -1,696 +1,385 @@
-# 🧠 MindBridge AI - Multi-Modal Emotion Analysis Platform
+# MindBridge AI - Real-Time Mental Health Analytics Platform
 
-A comprehensive AI-powered emotion analysis platform that combines video, audio, and text analysis to provide real-time emotional insights. Built with React frontend, AWS Lambda backend, and advanced AI services.
+![MindBridge AI](https://img.shields.io/badge/MindBridge-AI%20Powered-blue?style=for-the-badge&logo=aws)
+![AWS](https://img.shields.io/badge/AWS-Cloud%20Native-orange?style=for-the-badge&logo=amazon-aws)
+![React](https://img.shields.io/badge/React-Frontend-61dafb?style=for-the-badge&logo=react)
+![Python](https://img.shields.io/badge/Python-Backend-3776ab?style=for-the-badge&logo=python)
 
-## 🌟 Features
+## 🧠 Overview
 
-### 🎬 **Video Analysis**
-- Real-time facial emotion detection using AWS Rekognition
-- Local OpenCV fallback for development
-- Age, gender, and emotion confidence scoring
-- Multi-face detection and analysis
+MindBridge AI is a comprehensive mental health analytics platform that combines real-time emotion detection, AI-powered sentiment analysis, and personalized wellness recommendations. Built with AWS cloud-native architecture, it provides both real-time call analysis for customer service and personal mental health check-ins for individual wellness tracking.
 
-### 🎙️ **Audio Analysis**
-- Speech-to-text transcription via AWS Transcribe
-- Sentiment analysis of spoken content
-- Emotion detection from voice patterns
-- Real-time audio processing
+## ✨ Key Features
 
-### 📝 **Text Analysis**
-- Natural language processing with AWS Comprehend
-- Sentiment analysis and entity detection
-- Key phrase extraction
-- Multi-language support
+### 🎯 Real-Time Call Analysis
+- **Live Emotion Detection** - Real-time facial emotion analysis during video calls
+- **Audio Sentiment Analysis** - AI-powered audio processing using AWS Bedrock LLM
+- **Call Quality Metrics** - Speaking rate, confidence levels, and emotional patterns
+- **Agent Performance Insights** - Detailed analytics for customer service optimization
+- **Real-time Audio Chunks** - Continuous audio analysis during calls
 
-### 🔄 **Emotion Fusion**
-- Multi-modal emotion synthesis
-- Real-time emotion tracking
-- Session-based analysis
-- Historical emotion trends
+### 🧘 Mental Health Check-ins
+- **Facial Emotion Analysis** - Camera-based emotion detection using AWS Rekognition
+- **Self-Assessment Integration** - Comprehensive mood and wellness questionnaires
+- **AI-Powered Insights** - Personalized recommendations using AWS Bedrock Claude 3
+- **Trend Analytics** - Historical pattern analysis and progress tracking
+- **Session-based Tracking** - Individual check-in sessions with detailed metrics
 
-### 📊 **Dashboard & Analytics**
-- Real-time emotion visualization
-- Session analytics and insights
-- User emotion history
-- Performance metrics
+### 🤖 AI-Powered Analytics
+- **LLM-Generated Reports** - Personalized insights using AWS Bedrock Claude 3
+- **Dynamic Recommendations** - Context-aware wellness advice
+- **Emotional Context Analysis** - Deep understanding of emotional states
+- **Predictive Insights** - Pattern recognition and trend analysis
+- **Multi-modal Fusion** - Combined video, audio, and text analysis
 
 ## 🏗️ Architecture
 
+### Frontend (React.js)
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   React Frontend│    │  API Gateway    │    │  AWS Lambda     │
-│   (S3/CloudFront)│◄──►│   (REST API)    │◄──►│   Functions     │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-                                │                       │
-                                ▼                       ▼
-                       ┌─────────────────┐    ┌─────────────────┐
-                       │   AWS AI Services│    │   DynamoDB/S3   │
-                       │   (Rekognition,  │    │   (Storage)     │
-                       │    Transcribe,   │    └─────────────────┘
-                       │    Comprehend)   │
-                       └─────────────────┘
+frontend/
+├── src/
+│   ├── components/
+│   │   ├── RealTimeCallAnalysis.js    # Live call emotion detection
+│   │   ├── MentalHealthCheckin.js     # Personal wellness check-ins
+│   │   ├── TextAnalysis.js            # Text sentiment analysis
+│   │   ├── EmotionAnalytics.js        # Historical analytics dashboard
+│   │   ├── CameraCapture.js           # Video capture and processing
+│   │   ├── AutomatedCallDashboard.js  # Call review analytics
+│   │   ├── EmailAuth.js               # User authentication
+│   │   └── ui/                        # Reusable UI components
+│   ├── services/
+│   │   ├── ApiService.js              # AWS API Gateway integration
+│   │   ├── WebSocketService.js        # Real-time communication
+│   │   └── index.js                   # Service exports
+│   └── config.prod.js                 # Production configuration
 ```
 
-## 📁 Project Structure
+### Backend (AWS Serverless)
+```
+infrastructure/
+├── mindbridge_stack.py                # CDK infrastructure definition (Python)
+├── cdk.json                           # CDK configuration
+├── requirements.txt                   # Python dependencies
+└── bin/
 
+lambda_functions/
+├── video_analysis/                    # Facial emotion detection
+├── text_analysis/                     # LLM-powered sentiment analysis
+├── checkin_processor/                 # Mental health data processing
+├── checkin_retriever/                 # Analytics data retrieval
+├── realtime_call_analysis/            # Live call processing
+├── emotion_fusion/                    # Multi-modal emotion fusion
+├── dashboard/                         # Analytics aggregation
+├── user_auth/                         # User authentication
+├── health_check/                      # Health monitoring
+└── call_review/                       # Call review processing
 ```
-MindBridge/
-├── frontend/                    # React TypeScript frontend
-│   ├── src/
-│   │   ├── components/         # React components
-│   │   │   ├── CameraCapture.js      # Video capture and analysis
-│   │   │   ├── EmotionVisualization.js # Real-time emotion display
-│   │   │   └── Simple.js             # Simplified UI component
-│   │   ├── services/           # API and WebSocket services
-│   │   │   ├── ApiService.js   # HTTP API client
-│   │   │   └── WebSocketService.js # WebSocket client
-│   │   ├── types/              # TypeScript type definitions
-│   │   └── App.js              # Main application component
-│   ├── package.json            # Frontend dependencies
-│   └── public/                 # Static assets
-├── lambda_functions/           # AWS Lambda functions
-│   ├── video_analysis/         # Video emotion analysis
-│   ├── audio_analysis/         # Audio processing and analysis
-│   ├── text_analysis/          # Text sentiment analysis
-│   ├── emotion_fusion/         # Multi-modal emotion synthesis
-│   ├── dashboard/              # Analytics and dashboard data
-│   └── health_check/           # Health monitoring
-├── infrastructure/             # AWS CDK infrastructure
-│   ├── mindbridge-stack.py     # Main infrastructure stack
-│   ├── cdk.json               # CDK configuration
-│   └── requirements.txt       # CDK dependencies
-├── scripts/                   # Deployment and utility scripts
-│   ├── deploy.sh              # Full deployment script
-│   ├── setup-aws.sh           # AWS setup script
-│   ├── test-local.sh          # Local testing script
-│   └── local-dev.sh           # Local development setup
-├── docs/                      # Documentation
-│   └── ARCHITECTURE.md        # Detailed architecture docs
-├── events/                    # Test event files
-└── venv/                      # Python virtual environment
-```
+
+### AWS Services Integration
+- **AWS Lambda** - Serverless compute for all processing
+- **AWS Bedrock** - Claude 3 LLM for AI-powered insights
+- **AWS Rekognition** - Facial emotion detection
+- **AWS Transcribe** - Speech-to-text conversion
+- **AWS Comprehend** - Natural language processing
+- **DynamoDB** - NoSQL database for data storage
+- **S3** - Media storage and call recordings
+- **API Gateway** - RESTful API endpoints
+- **CloudFront** - CDN for frontend delivery
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-
-- **Node.js** (v16 or higher)
-- **Python** (3.9 or higher)
-- **AWS CLI** configured with appropriate permissions
-- **AWS CDK** installed globally
-- **Git** for version control
+- AWS CLI configured with appropriate permissions
+- Node.js 18+ and npm
+- Python 3.9+
+- AWS CDK CLI
 
 ### 1. Clone and Setup
-
 ```bash
-# Clone the repository
 git clone <repository-url>
 cd MindBridge
-
-# Install Python dependencies
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-
-# Install frontend dependencies
-cd frontend
 npm install
-cd ..
-
-# Install CDK dependencies
-cd infrastructure
-pip install -r requirements.txt
-cd ..
 ```
 
-### 2. AWS Configuration
-
+### 2. Deploy Infrastructure
 ```bash
-# Configure AWS CLI
-aws configure
-
-# Bootstrap CDK (first time only)
 cd infrastructure
+npm install
 cdk bootstrap
-cd ..
-```
-
-### 3. Local Development
-
-```bash
-# Start local backend server
-python test_server.py
-
-# In another terminal, start frontend
-cd frontend
-npm start
-```
-
-### 4. AWS Deployment
-
-```bash
-# Deploy infrastructure
-cd infrastructure
 cdk deploy --require-approval never
-cd ..
-
-# Build and deploy frontend
-cd frontend
-npm run build
-cd ..
-aws s3 sync frontend/build/ s3://mindbridge-frontend-{account-id} --delete
 ```
 
-## 📋 Detailed Setup Instructions
-
-### Environment Variables
-
-Create environment files for different stages:
-
+### 3. Deploy Frontend and Backend
 ```bash
-# Development
-cat > frontend/.env.development << EOF
-REACT_APP_API_URL=http://localhost:3002
-REACT_APP_WEBSOCKET_URL=ws://localhost:3002
-EOF
-
-# Production (after AWS deployment)
-cat > frontend/.env.production << EOF
-REACT_APP_API_URL=https://axvcqofzug.execute-api.us-east-1.amazonaws.com/prod/
-REACT_APP_WEBSOCKET_URL=wss://axvcqofzug.execute-api.us-east-1.amazonaws.com/prod/
-EOF
+# Deploy frontend to S3/CloudFront and backend proxy
+./scripts/deploy-frontend-backend.sh
 ```
 
-### AWS Services Setup
+### 4. Deploy Lambda Functions
+```bash
+# Deploy all Lambda functions
+./scripts/deploy-checkin-functions.sh
+./scripts/deploy-automated-call-review.sh
 
-#### 1. IAM Permissions
+# Or deploy individually
+./scripts/deploy-checkin-processor.sh
+./scripts/deploy-user-auth.sh
+```
 
-Your AWS user needs the following permissions:
-- `AdministratorAccess` (recommended for development)
-- Or custom policies for: Lambda, API Gateway, DynamoDB, S3, CloudWatch, IAM
+### 5. Setup AWS Resources
+```bash
+# Setup required AWS resources (S3, DynamoDB, IAM)
+./scripts/setup-aws-resources.sh
+```
 
-#### 2. Service Quotas
+## 📊 API Endpoints
 
-Ensure your AWS account has sufficient quotas:
-- Lambda concurrent executions: 1000+
-- API Gateway requests: 10,000+ per second
-- DynamoDB read/write capacity: Auto-scaling enabled
+### Real-Time Analysis
+- `POST /video-analysis` - Facial emotion detection
+- `POST /text-analysis` - LLM-powered sentiment analysis
+- `POST /realtime-call-analysis` - Live call processing
+- `POST /emotion-fusion` - Multi-modal emotion fusion
 
-### Lambda Functions
+### Mental Health
+- `POST /checkin-processor` - Process mental health check-ins
+- `GET /checkin-retriever` - Retrieve analytics data
+- `POST /user-auth` - User authentication
 
-Each Lambda function is optimized for its specific task:
+### Analytics
+- `GET /dashboard` - Analytics dashboard data
+- `GET /health` - Health check endpoint
+- `POST /call-review` - Automated call review processing
 
-#### Video Analysis (`video_analysis/`)
-- **Runtime**: Python 3.9
-- **Memory**: 1024 MB
-- **Timeout**: 30 seconds
-- **Dependencies**: OpenCV, NumPy, AWS SDK
+## 🧠 AI Features
 
-#### Audio Analysis (`audio_analysis/`)
-- **Runtime**: Python 3.9
-- **Memory**: 1024 MB
-- **Timeout**: 30 seconds
-- **Dependencies**: AWS Transcribe, AWS Comprehend
+### Text Sentiment Analysis
+```javascript
+// Example: Analyze text emotions
+const result = await ApiService.analyzeText({
+  text: "I'm feeling really stressed about work lately",
+  user_id: "user123",
+  session_id: "session456"
+});
 
-#### Text Analysis (`text_analysis/`)
-- **Runtime**: Python 3.9
-- **Memory**: 512 MB
-- **Timeout**: 30 seconds
-- **Dependencies**: AWS Comprehend
+// Returns:
+{
+  sentiment: "negative",
+  emotions: [{ Type: "anxiety", Confidence: 0.85, Intensity: "high" }],
+  llm_analysis: {
+    emotional_context: "The text indicates work-related stress...",
+    recommendations: "Consider stress management techniques..."
+  }
+}
+```
 
-#### Emotion Fusion (`emotion_fusion/`)
-- **Runtime**: Python 3.9
-- **Memory**: 1024 MB
-- **Timeout**: 2 minutes
-- **Dependencies**: AWS Bedrock (Claude)
+### Mental Health Check-ins
+```javascript
+// Example: Submit check-in data
+const checkinData = {
+  emotion_analysis: { dominant_emotion: "calm", average_wellbeing: 75 },
+  self_assessment: { overall_mood: 7, stress_level: 3 },
+  duration: 120
+};
+
+const result = await ApiService.submitCheckin(checkinData);
+// Returns personalized LLM-generated recommendations
+```
+
+### Real-Time Call Analysis
+```javascript
+// Example: Send audio chunk for analysis
+const audioChunk = await ApiService.sendRealTimeAudioChunk({
+  audio_data: base64AudioData,
+  user_id: "user123",
+  session_id: "call456",
+  timestamp: Date.now()
+});
+
+// Returns real-time sentiment and emotion analysis
+```
 
 ## 🔧 Configuration
 
+### Environment Variables
+```bash
+# AWS Configuration
+AWS_REGION=us-east-1
+AWS_ACCOUNT_ID=your-account-id
+
+# Bedrock Configuration
+BEDROCK_MODEL_ID=anthropic.claude-3-haiku-20240307-v1:0
+
+# DynamoDB Tables
+CHECKINS_TABLE=mindbridge-checkins-dev
+EMOTIONS_TABLE=mindbridge-emotions-dev
+USERS_TABLE=mindbridge-users-dev
+CALL_REVIEWS_TABLE=mindbridge-call-reviews-dev
+
+# S3 Buckets
+MEDIA_BUCKET=mindbridge-media-dev-{account}
+CALL_RECORDINGS_BUCKET=mindbridge-call-recordings-dev-{account}
+AUDIO_CHUNKS_BUCKET=mindbridge-audio-chunks-dev-{account}
+```
+
 ### Frontend Configuration
-
-The frontend automatically detects the environment and uses appropriate API endpoints:
-
 ```javascript
-// Automatic environment detection
-const isLocalhost = window.location.hostname === 'localhost' || 
-                   window.location.hostname === '127.0.0.1';
-const baseURL = isLocalhost ? 'http://localhost:3002' : 
-                process.env.REACT_APP_API_URL;
+// config.prod.js
+const config = {
+  apiUrl: 'https://your-api-gateway-url.amazonaws.com/prod/',
+  websocketUrl: 'wss://your-websocket-url.amazonaws.com/prod/',
+  region: 'us-east-1'
+};
 ```
 
-### Backend Configuration
+## 📈 Analytics Dashboard
 
-Lambda functions use environment variables for configuration:
+### Real-Time Metrics
+- **Emotion Distribution** - Real-time emotion tracking
+- **Sentiment Trends** - Historical sentiment analysis
+- **Call Quality Scores** - Agent performance metrics
+- **Wellness Trends** - Personal mental health patterns
 
-```python
-# Environment variables
-EMOTIONS_TABLE = os.environ.get('EMOTIONS_TABLE')
-STAGE = os.environ.get('STAGE', 'dev')
-FUSION_LAMBDA_ARN = os.environ.get('FUSION_LAMBDA_ARN')
-```
+### LLM-Powered Insights
+- **Personalized Recommendations** - AI-generated wellness advice
+- **Emotional Context Analysis** - Deep understanding of emotional states
+- **Trend Predictions** - Pattern recognition and forecasting
+- **Actionable Insights** - Specific, personalized recommendations
 
-### API Gateway Configuration
+### Historical Analytics
+- **Session History** - Complete check-in session records
+- **Emotion Patterns** - Long-term emotional trend analysis
+- **Wellness Progress** - Personal growth and improvement tracking
+- **Recommendation History** - Past AI-generated advice
 
-The REST API is configured with:
-- CORS enabled for all origins
-- Lambda integration for all endpoints
-- Request/response transformation
-- CloudWatch logging
+## 🔒 Security & Privacy
 
-## 🧪 Testing
+### Data Protection
+- **End-to-end encryption** for all data transmission
+- **AWS IAM** for fine-grained access control
+- **DynamoDB encryption** at rest and in transit
+- **S3 bucket policies** for secure media storage
 
-### Local Testing
+### Privacy Compliance
+- **User consent** for data collection and processing
+- **Data anonymization** for analytics
+- **Retention policies** for automatic data cleanup
+- **GDPR compliance** ready
 
+## 🚀 Deployment
+
+### Production Deployment
 ```bash
-# Test all endpoints
+# Deploy to production
+cd infrastructure
+cdk deploy --context environment=production
+
+# Deploy frontend to CloudFront
+cd frontend
+npm run build
+npm run deploy:prod
+```
+
+### Local Development
+```bash
+# Start local development environment
+./scripts/local-dev.sh
+
+# Test local endpoints
 ./scripts/test-local.sh
-
-# Test specific endpoints
-curl http://localhost:3002/health
-curl -X POST http://localhost:3002/video-analysis \
-  -H "Content-Type: application/json" \
-  -d '{"frame_data": "test", "user_id": "test", "session_id": "test"}'
 ```
 
-### AWS Testing
+### Monitoring & Logging
+- **CloudWatch Logs** for Lambda function monitoring
+- **CloudWatch Metrics** for performance tracking
+- **X-Ray** for distributed tracing
+- **CloudTrail** for API call auditing
 
+## 🤝 Contributing
+
+### Development Setup
 ```bash
-# Get API URL from stack outputs
-API_URL=$(aws cloudformation describe-stacks \
-  --stack-name MindBridgeStack \
-  --query 'Stacks[0].Outputs[?OutputKey==`ApiURL`].OutputValue' \
-  --output text)
+# Install dependencies
+npm install
+pip install -r requirements.txt
 
-# Test health endpoint
-curl $API_URL/health
-
-# Test video analysis
-curl -X POST $API_URL/video-analysis \
-  -H "Content-Type: application/json" \
-  -d '{"frame_data": "test", "user_id": "test", "session_id": "test"}'
-```
-
-### Frontend Testing
-
-```bash
-# Start frontend in development mode
+# Run development server
 cd frontend
 npm start
 
 # Run tests
 npm test
-
-# Build for production
-npm run build
 ```
 
-## 📊 Monitoring and Logging
-
-### CloudWatch Logs
-
-Monitor Lambda function execution:
-
-```bash
-# View recent logs
-aws logs describe-log-groups --log-group-name-prefix '/aws/lambda/mindbridge'
-
-# Get specific function logs
-aws logs tail /aws/lambda/mindbridge-video-analysis-dev --follow
-```
-
-### Performance Metrics
-
-Key metrics to monitor:
-- **Lambda Duration**: Should be < 10 seconds for most functions
-- **Lambda Errors**: Should be < 1%
-- **API Gateway 4xx/5xx**: Should be < 5%
-- **DynamoDB Throttling**: Should be 0
-
-### Cost Optimization
-
-- Use Lambda Provisioned Concurrency for consistent performance
-- Enable DynamoDB Auto Scaling
-- Set appropriate S3 lifecycle policies
-- Monitor CloudWatch costs
-
-## 🚨 Troubleshooting
-
-### Common Issues
-
-#### 1. "Missing Authentication Token" Error
-
-**Cause**: Incorrect API Gateway URL structure
-**Solution**: Ensure URL includes stage name (e.g., `/prod/` not `/prod`)
-
-```javascript
-// Correct
-const apiUrl = 'https://api-id.execute-api.region.amazonaws.com/prod/';
-
-// Incorrect
-const apiUrl = 'https://api-id.execute-api.region.amazonaws.com/prod';
-```
-
-#### 2. Lambda Deployment Package Too Large
-
-**Cause**: Dependencies exceed 50MB limit
-**Solution**: Use Lambda layers or optimize dependencies
-
-```bash
-# Create minimal deployment package
-cd lambda_functions/video_analysis
-pip install -r requirements.txt -t .
-rm -rf *.dist-info __pycache__ tests
-zip -r ../video_analysis.zip .
-```
-
-#### 3. CORS Errors
-
-**Cause**: Frontend and backend origins don't match
-**Solution**: Configure CORS in API Gateway
-
-```python
-# In CDK stack
-default_cors_preflight_options=apigateway.CorsOptions(
-    allow_origins=apigateway.Cors.ALL_ORIGINS,
-    allow_methods=apigateway.Cors.ALL_METHODS,
-    allow_headers=apigateway.Cors.DEFAULT_HEADERS,
-)
-```
-
-#### 4. Camera Access Denied
-
-**Cause**: Browser security restrictions
-**Solution**: Use HTTPS in production, localhost for development
-
-```javascript
-// Check camera permissions
-navigator.mediaDevices.getUserMedia({ video: true })
-  .then(stream => console.log('Camera access granted'))
-  .catch(err => console.error('Camera access denied:', err));
-```
-
-#### 5. DynamoDB Float Type Errors
-
-**Cause**: DynamoDB doesn't support float types
-**Solution**: Convert to Decimal types
-
-```python
-from decimal import Decimal
-
-# Convert float to Decimal
-confidence = Decimal(str(confidence_value))
-```
-
-### Debug Mode
-
-Enable detailed logging:
-
-```bash
-# Set environment variable
-export DEBUG=true
-
-# Or in Lambda environment
-STAGE=debug
-```
-
-### Performance Issues
-
-#### Lambda Cold Starts
-
-**Solution**: Use Provisioned Concurrency
-
-```python
-# In CDK stack
-function = _lambda.Function(
-    self, "Function",
-    # ... other config
-    reserved_concurrent_executions=10
-)
-```
-
-#### API Gateway Latency
-
-**Solution**: Enable caching and compression
-
-```python
-# In CDK stack
-default_cache_behavior=apigateway.CacheBehavior(
-    cache_ttl=Duration.minutes(5),
-    compress=True
-)
-```
-
-## 🔒 Security
-
-### Best Practices
-
-1. **IAM Least Privilege**: Use minimal required permissions
-2. **VPC Isolation**: Deploy Lambda functions in VPC for sensitive data
-3. **Encryption**: Enable encryption at rest and in transit
-4. **API Keys**: Use API keys for production APIs
-5. **CORS**: Restrict CORS origins in production
-
-### Security Configuration
-
-```python
-# Enable encryption
-encryption=s3.BucketEncryption.S3_MANAGED
-
-# Restrict CORS in production
-allow_origins=['https://yourdomain.com'] if environment == 'production' 
-else apigateway.Cors.ALL_ORIGINS
-```
-
-## 📈 Scaling
-
-### Horizontal Scaling
-
-- **Lambda**: Automatically scales based on demand
-- **API Gateway**: Handles thousands of concurrent requests
-- **DynamoDB**: Auto-scaling enabled by default
-
-### Vertical Scaling
-
-- **Lambda Memory**: Increase for compute-intensive tasks
-- **DynamoDB Capacity**: Adjust read/write capacity units
-- **API Gateway**: Use regional endpoints for better performance
-
-## 🛠️ Development Workflow
-
-### 1. Local Development
-
-```bash
-# Start backend
-python test_server.py
-
-# Start frontend
-cd frontend && npm start
-
-# Make changes and test locally
-```
-
-### 2. Testing Changes
-
-```bash
-# Test Lambda functions locally
-python -m pytest tests/
-
-# Test frontend
-cd frontend && npm test
-
-# Test API endpoints
-./scripts/test-local.sh
-```
-
-### 3. Deployment
-
-```bash
-# Deploy infrastructure changes
-cd infrastructure && cdk deploy
-
-# Deploy frontend changes
-cd frontend && npm run build
-aws s3 sync build/ s3://mindbridge-frontend-{account-id}
-```
-
-### 4. Monitoring
-
-```bash
-# Check deployment status
-aws cloudformation describe-stacks --stack-name MindBridgeStack
-
-# Monitor logs
-aws logs tail /aws/lambda/mindbridge-* --follow
-```
-
-## 📚 API Reference
-
-### Endpoints
-
-#### Health Check
-```
-GET /health
-Response: {"service": "MindBridge AI", "status": "healthy", ...}
-```
-
-#### Video Analysis
-```
-POST /video-analysis
-Body: {
-  "frame_data": "base64-encoded-image",
-  "user_id": "string",
-  "session_id": "string"
-}
-Response: {
-  "faces_detected": 1,
-  "emotions": [...],
-  "primary_emotion": "happy",
-  "confidence": 95.0
-}
-```
-
-#### Audio Analysis
-```
-POST /audio-analysis
-Body: {
-  "audio_data": "base64-encoded-audio",
-  "user_id": "string",
-  "session_id": "string"
-}
-Response: {
-  "transcript": "spoken text",
-  "sentiment": "positive",
-  "confidence": 85.0
-}
-```
-
-#### Text Analysis
-```
-POST /text-analysis
-Body: {
-  "text": "string",
-  "user_id": "string",
-  "session_id": "string"
-}
-Response: {
-  "sentiment": "positive",
-  "entities": [...],
-  "key_phrases": [...]
-}
-```
-
-#### Emotion Fusion
-```
-POST /emotion-fusion
-Body: {
-  "user_id": "string",
-  "session_id": "string"
-}
-Response: {
-  "fused_emotion": "happy",
-  "confidence": 90.0,
-  "modalities": [...]
-}
-```
-
-### Error Responses
-
-```json
-{
-  "error": "Error message",
-  "statusCode": 400,
-  "requestId": "unique-request-id"
-}
-```
-
-## 🤝 Contributing
-
-### Development Setup
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit a pull request
-
-### Code Standards
-
-- **Python**: Follow PEP 8
-- **JavaScript**: Use ESLint configuration
-- **TypeScript**: Enable strict mode
-- **Documentation**: Update README for new features
-
-### Testing Requirements
-
-- Unit tests for all Lambda functions
-- Integration tests for API endpoints
-- Frontend component tests
-- End-to-end tests for critical flows
-
-## 📄 License
+### Code Structure
+- **Frontend**: React.js with functional components and hooks
+- **Backend**: Python Lambda functions with AWS SDK
+- **Infrastructure**: AWS CDK with Python
+- **Testing**: Jest for frontend, pytest for backend
+
+## 📝 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🆘 Support
 
-### Getting Help
+### Documentation
+- [Architecture Guide](docs/ARCHITECTURE.md)
+- [AWS Bedrock Integration](AWS_BEDROCK_LLM_INTEGRATION.md)
+- [Amazon Rekognition Deployment](AMAZON_REKOGNITION_DEPLOYMENT.md)
+- [Automated Call Review](AUTOMATED_CALL_REVIEW.md)
 
-1. **Check Documentation**: Review this README and architecture docs
-2. **Search Issues**: Look for similar problems in GitHub issues
-3. **Create Issue**: Provide detailed error information and logs
-4. **Community**: Join our Discord/Slack for real-time help
+### Troubleshooting
+- Check CloudWatch Logs for Lambda function errors
+- Verify AWS IAM permissions for Bedrock access
+- Ensure API Gateway CORS configuration is correct
+- Validate DynamoDB table schemas and permissions
+- Check S3 bucket policies and permissions
 
-### Useful Commands
+### Common Issues
+- **500 Internal Server Errors**: Check Lambda function logs and DynamoDB permissions
+- **403 Forbidden**: Verify IAM roles and API Gateway permissions
+- **CORS Errors**: Ensure API Gateway CORS configuration is correct
+- **Lambda Timeout**: Check function timeout settings and resource allocation
 
-```bash
-# Check AWS configuration
-aws sts get-caller-identity
+## 🎯 Roadmap
 
-# List deployed resources
-aws cloudformation list-stacks
+### Upcoming Features
+- **Multi-language Support** - Internationalization
+- **Advanced Analytics** - Machine learning insights
+- **Mobile App** - React Native implementation
+- **Team Analytics** - Group wellness tracking
+- **Integration APIs** - Third-party service connections
 
-# Get stack outputs
-aws cloudformation describe-stacks --stack-name MindBridgeStack
+### Performance Optimizations
+- **Edge Computing** - Lambda@Edge for global performance
+- **Caching Strategy** - Redis for frequently accessed data
+- **CDN Optimization** - Advanced CloudFront configuration
+- **Database Optimization** - DynamoDB performance tuning
 
-# View Lambda logs
-aws logs describe-log-groups --log-group-name-prefix '/aws/lambda/mindbridge'
+## 📊 Current Status
 
-# Test API endpoints
-curl -X GET https://your-api-url/health
-```
+### ✅ Implemented Features
+- **Real-time Call Analysis** - Live audio processing and sentiment analysis
+- **Mental Health Check-ins** - Camera-based emotion detection and self-assessment
+- **AI-Powered Analytics** - LLM-generated insights and recommendations
+- **Multi-modal Fusion** - Combined video, audio, and text analysis
+- **User Authentication** - Email-based user management
+- **Historical Analytics** - Session tracking and trend analysis
 
-### Emergency Procedures
+### 🔧 Infrastructure
+- **AWS CDK Stack** - Complete infrastructure as code
+- **Lambda Functions** - 8+ serverless functions deployed
+- **DynamoDB Tables** - 4 tables for different data types
+- **S3 Buckets** - 3 buckets for media storage
+- **API Gateway** - RESTful API with CORS support
+- **CloudFront** - CDN for frontend delivery
 
-#### Rollback Deployment
-
-```bash
-# Rollback to previous version
-cd infrastructure
-cdk rollback
-
-# Or manually update Lambda functions
-aws lambda update-function-code --function-name mindbridge-video-analysis-dev --zip-file fileb://video_analysis.zip
-```
-
-#### Restore from Backup
-
-```bash
-# Restore DynamoDB table
-aws dynamodb restore-table-from-backup --target-table-name mindbridge-emotions-dev --backup-arn arn:aws:dynamodb:region:account:table/mindbridge-emotions-dev/backup/backup-id
-```
+### 🚀 Deployment
+- **Frontend** - Deployed to S3/CloudFront
+- **Backend** - Lambda functions deployed to AWS
+- **Database** - DynamoDB tables created and configured
+- **Monitoring** - CloudWatch logs and metrics enabled
 
 ---
 
-## 🎉 Success Stories
-
-MindBridge AI has been successfully deployed and tested with:
-
-- ✅ **Real-time video emotion analysis** with 95%+ accuracy
-- ✅ **Multi-modal emotion fusion** combining video, audio, and text
-- ✅ **Scalable AWS infrastructure** handling 1000+ concurrent users
-- ✅ **Production-ready frontend** with responsive design
-- ✅ **Comprehensive error handling** and fallback mechanisms
-
----
-
-**Built with ❤️ using React, AWS Lambda, and AI services** 
+**Built with ❤️ using AWS Serverless Architecture and AI-Powered Insights** 
