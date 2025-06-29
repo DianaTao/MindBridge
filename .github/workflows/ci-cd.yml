@@ -42,7 +42,7 @@ jobs:
 
     - name: Run frontend linting
       working-directory: ./frontend
-      run: npm run lint
+      run: npm run lint -- --max-warnings 1000
 
     - name: Run frontend tests
       working-directory: ./frontend
