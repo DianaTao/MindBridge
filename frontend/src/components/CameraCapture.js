@@ -392,9 +392,9 @@ const CameraCapture = ({ onEmotionDetected, onProcessingChange }) => {
                 How to Use Camera Analysis
               </h3>
               <ul className="text-sm text-slate-600 space-y-1">
-                <li>• Click "Start Camera" to enable your device camera</li>
+                <li>• Click &quot;Start Camera&quot; to enable your device camera</li>
                 <li>• Position your face clearly in the camera view</li>
-                <li>• Click "Analyze Emotion" to detect your current emotion</li>
+                <li>• Click &quot;Analyze Emotion&quot; to detect your current emotion</li>
                 <li>• The system works best with good lighting and a clear view</li>
                 <li>• If you see network errors, the app will use offline analysis</li>
               </ul>

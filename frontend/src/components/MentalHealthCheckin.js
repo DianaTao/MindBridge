@@ -1,40 +1,34 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Button } from './ui/button';
 import { Badge } from './ui/badge';
+import { Button } from './ui/button';
 import { Progress } from './ui/progress';
-import ApiService from '../services/ApiService';
 import {
-  Camera,
-  CameraOff,
-  Heart,
-  Brain,
   Smile,
-  Frown,
-  Activity,
-  Calendar,
+  Heart,
   TrendingUp,
-  TrendingDown,
   Clock,
-  CheckCircle,
-  AlertTriangle,
-  BarChart3,
-  LineChart,
-  Users,
-  Shield,
+  Brain,
   Zap,
+  BarChart3,
+  Camera,
   RefreshCw,
+  AlertTriangle,
+  CameraOff,
   Play,
   Pause,
+  Users,
+  Shield,
   Save,
+  CheckCircle,
 } from 'lucide-react';
+import ApiService from '../services/ApiService';
 
 const MentalHealthCheckin = ({ userEmail }) => {
   // Camera and video states
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState(null);
-  const [hasPermission, setHasPermission] = useState(null);
 
   // Check-in states
   const [checkinData, setCheckinData] = useState({
@@ -76,7 +70,6 @@ const MentalHealthCheckin = ({ userEmail }) => {
     notes: '',
   });
 
-  const [checkinHistory, setCheckinHistory] = useState([]);
   const [showSelfAssessment, setShowSelfAssessment] = useState(false);
   const [checkinComplete, setCheckinComplete] = useState(false);
 
@@ -117,12 +110,10 @@ const MentalHealthCheckin = ({ userEmail }) => {
         });
       }
 
-      setHasPermission(true);
       setError(null);
       console.log('📷 Camera initialization successful');
     } catch (err) {
       console.error('📷 Camera access error:', err);
-      setHasPermission(false);
       setError('Camera access denied. Please allow camera permissions for emotion analysis.');
     }
   }, []);
@@ -338,7 +329,7 @@ const MentalHealthCheckin = ({ userEmail }) => {
       context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
 
       // Convert to blob
-      const blob = await new Promise((resolve, reject) => {
+      const blob = await new Promise((resolve, _reject) => {
         canvas.toBlob(resolve, 'image/jpeg', 0.8);
       });
 
@@ -552,21 +543,35 @@ const MentalHealthCheckin = ({ userEmail }) => {
       console.log('✅ Check-in submitted successfully:', result);
 
       // Create local record for history
-      const checkinRecord = {
-        id: checkinData.sessionId,
-        date: checkinData.startTime,
-        duration: checkinData.duration,
-        emotionAnalysis: checkinData,
-        selfAssessment: selfAssessment,
-        overallScore: Math.round(
-          (checkinData.averageWellbeing + selfAssessment.overallMood * 10) / 2
-        ),
-        recommendations: checkinData.recommendations,
-        llmReport: result.llm_report, // Include LLM report
-      };
-
-      setCheckinHistory(prev => [checkinRecord, ...prev].slice(0, 10)); // Keep last 10
-      setCheckinComplete(true);
+      setCheckinData({
+        sessionId: null,
+        startTime: null,
+        duration: 0,
+        currentMood: 'neutral',
+        moodHistory: [],
+        emotionScores: {
+          happy: 0,
+          sad: 0,
+          angry: 0,
+          surprised: 0,
+          fear: 0,
+          disgusted: 0,
+          calm: 0,
+        },
+        averageWellbeing: 50,
+        stressLevel: 'low',
+        recommendations: [],
+        insights: [],
+      });
+      setSelfAssessment({
+        overallMood: 5,
+        energyLevel: 5,
+        stressLevel: 5,
+        sleepQuality: 5,
+        socialConnection: 5,
+        motivation: 5,
+        notes: '',
+      });
       setShowSelfAssessment(false);
 
       // Reset for next session
@@ -607,20 +612,6 @@ const MentalHealthCheckin = ({ userEmail }) => {
       setError('Failed to save check-in data. Please try again.');
 
       // Still complete locally even if submission fails
-      const checkinRecord = {
-        id: checkinData.sessionId,
-        date: checkinData.startTime,
-        duration: checkinData.duration,
-        emotionAnalysis: checkinData,
-        selfAssessment: selfAssessment,
-        overallScore: Math.round(
-          (checkinData.averageWellbeing + selfAssessment.overallMood * 10) / 2
-        ),
-        recommendations: checkinData.recommendations,
-      };
-
-      setCheckinHistory(prev => [checkinRecord, ...prev].slice(0, 10));
-      setCheckinComplete(true);
       setShowSelfAssessment(false);
     }
   }, [checkinData, selfAssessment, userId]);

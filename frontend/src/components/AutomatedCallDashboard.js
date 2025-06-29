@@ -14,6 +14,7 @@ import {
   AlertCircle,
   CheckCircle,
   XCircle,
+  TrendingUp,
 } from 'lucide-react';
 
 const AutomatedCallDashboard = () => {
@@ -27,7 +28,6 @@ const AutomatedCallDashboard = () => {
     dateRange: '7d',
   });
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCall, setSelectedCall] = useState(null);
   const [stats, setStats] = useState({
     totalCalls: 0,
     completedCalls: 0,
@@ -456,7 +456,7 @@ const AutomatedCallDashboard = () => {
                 <div className="flex flex-col space-y-2">
                   <div className="text-xs text-gray-500">{formatTimestamp(call.timestamp)}</div>
                   <div className="flex space-x-2">
-                    <Button size="sm" variant="outline" onClick={() => setSelectedCall(call)}>
+                    <Button size="sm" variant="outline">
                       <Play className="w-4 h-4 mr-1" />
                       Review
                     </Button>

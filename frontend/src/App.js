@@ -39,7 +39,7 @@ const Badge = ({ children, className, ...props }) => (
   </span>
 );
 
-const Tabs = ({ children, value, onValueChange, className, ...props }) => (
+const Tabs = ({ children, _value, _onValueChange, className, ...props }) => (
   <div className={className} {...props}>
     {children}
   </div>
@@ -51,16 +51,10 @@ const TabsList = ({ children, className, ...props }) => (
   </div>
 );
 
-const TabsTrigger = ({ children, value, className, ...props }) => (
+const TabsTrigger = ({ children, _value, className, ...props }) => (
   <button className={className} {...props}>
     {children}
   </button>
-);
-
-const TabsContent = ({ children, value, className, ...props }) => (
-  <div className={className} {...props}>
-    {children}
-  </div>
 );
 
 // Icon components

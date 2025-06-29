@@ -5,18 +5,16 @@ import { Badge } from './ui/badge';
 import { Progress } from './ui/progress';
 import {
   Mic,
-  // MicOff,
-  // Phone,
-  // PhoneOff,
-  Activity,
+  MicOff,
   TrendingUp,
   TrendingDown,
+  Activity,
   Clock,
-  Users,
-  MessageSquare,
   AlertCircle,
   CheckCircle,
   XCircle,
+  MessageSquare,
+  Users,
 } from 'lucide-react';
 import { sendRealTimeAudioChunk } from '../services/ApiService';
 
@@ -52,7 +50,6 @@ const RealTimeCallAnalysis = ({ userEmail }) => {
   const audioChunksRef = useRef([]);
   const analysisIntervalRef = useRef(null);
   const durationIntervalRef = useRef(null);
-  const startTimeRef = useRef(null);
 
   // Use email as user identifier
   const userId = userEmail || 'anonymous';
@@ -635,7 +632,7 @@ const RealTimeCallAnalysis = ({ userEmail }) => {
               <div>
                 <p className="font-semibold">Browser Not Supported</p>
                 <p className="text-sm">
-                  Your browser doesn't support the required APIs for real-time audio recording.
+                  Your browser doesn&apos;t support the required APIs for real-time audio recording.
                   Please use a modern browser like Chrome, Firefox, or Safari.
                 </p>
                 {!isMediaRecorderSupported && (
