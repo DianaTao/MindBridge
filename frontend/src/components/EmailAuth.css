@@ -173,8 +173,12 @@
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .error-message {
@@ -239,18 +243,18 @@
     padding: 30px 20px;
     margin: 10px;
   }
-  
+
   .auth-header h3 {
     font-size: 20px;
   }
-  
+
   .input-wrapper input {
     font-size: 14px;
   }
-  
+
   .sign-in-button,
   .sign-out-button {
     font-size: 14px;
     padding: 10px 20px;
   }
-} 
+}

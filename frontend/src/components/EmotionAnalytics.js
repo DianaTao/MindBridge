@@ -12,10 +12,10 @@ const EmotionAnalytics = ({ userEmail }) => {
   const [timeRange, setTimeRange] = useState(30); // days
   const [isHRUser, setIsHRUser] = useState(false);
   const [showHRDashboard, setShowHRDashboard] = useState(false);
-  
+
   // Use email as user identifier
   const userId = userEmail || 'anonymous';
-  
+
   console.log('🔍 EmotionAnalytics using user email:', userId);
 
   useEffect(() => {
@@ -28,10 +28,11 @@ const EmotionAnalytics = ({ userEmail }) => {
       // Check if user has HR role based on email domain or specific email addresses
       const hrDomains = ['hr.', 'people.', 'talent.'];
       const hrEmails = ['hr@company.com', 'peopleops@company.com', 'talent@company.com'];
-      
-      const isHR = hrDomains.some(domain => userEmail?.includes(domain)) || 
-                   hrEmails.includes(userEmail?.toLowerCase());
-      
+
+      const isHR =
+        hrDomains.some(domain => userEmail?.includes(domain)) ||
+        hrEmails.includes(userEmail?.toLowerCase());
+
       setIsHRUser(isHR);
     } catch (err) {
       console.error('Failed to check user role:', err);
@@ -43,18 +44,17 @@ const EmotionAnalytics = ({ userEmail }) => {
     try {
       setLoading(true);
       setError(null);
-      
+
       console.log('📊 Loading check-in data...');
       const data = await ApiService.getCheckinData({
         user_id: userId,
         days: timeRange,
-        limit: 50
+        limit: 50,
       });
-      
+
       console.log('✅ Check-in data loaded:', data);
       setCheckins(data.checkins || []);
       setAnalytics(data.analytics_summary || {});
-      
     } catch (err) {
       console.error('❌ Failed to load check-in data:', err);
       setError('Failed to load check-in data. Please try again.');
@@ -63,38 +63,46 @@ const EmotionAnalytics = ({ userEmail }) => {
     }
   };
 
-  const formatDate = (timestamp) => {
+  const formatDate = timestamp => {
     return new Date(timestamp).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     });
   };
 
-  const getMoodColor = (score) => {
+  const getMoodColor = score => {
     if (score >= 80) return '#10B981'; // Green
     if (score >= 60) return '#F59E0B'; // Yellow
     if (score >= 40) return '#F97316'; // Orange
     return '#EF4444'; // Red
   };
 
-  const getTrendIcon = (trend) => {
+  const getTrendIcon = trend => {
     switch (trend) {
-      case 'improving': return '📈';
-      case 'declining': return '📉';
-      case 'stable': return '➡️';
-      default: return '❓';
+      case 'improving':
+        return '📈';
+      case 'declining':
+        return '📉';
+      case 'stable':
+        return '➡️';
+      default:
+        return '❓';
     }
   };
 
-  const getTrendColor = (trend) => {
+  const getTrendColor = trend => {
     switch (trend) {
-      case 'improving': return '#10B981';
-      case 'declining': return '#EF4444';
-      case 'stable': return '#6B7280';
-      default: return '#9CA3AF';
+      case 'improving':
+        return '#10B981';
+      case 'declining':
+        return '#EF4444';
+      case 'stable':
+        return '#6B7280';
+      default:
+        return '#9CA3AF';
     }
   };
 
@@ -130,16 +138,16 @@ const EmotionAnalytics = ({ userEmail }) => {
         <h2>🧠 Emotion Analytics</h2>
         <div className="header-controls">
           {isHRUser && (
-            <button 
+            <button
               onClick={() => setShowHRDashboard(!showHRDashboard)}
               className={`hr-toggle-button ${showHRDashboard ? 'active' : ''}`}
             >
               {showHRDashboard ? '👤 Personal View' : '🏢 HR Dashboard'}
             </button>
           )}
-          <select 
-            value={timeRange} 
-            onChange={(e) => setTimeRange(Number(e.target.value))}
+          <select
+            value={timeRange}
+            onChange={e => setTimeRange(Number(e.target.value))}
             className="time-range-select"
           >
             <option value={7}>Last 7 days</option>
@@ -154,10 +162,7 @@ const EmotionAnalytics = ({ userEmail }) => {
 
       {/* HR Wellness Dashboard */}
       {isHRUser && showHRDashboard && (
-        <HRWellnessDashboard 
-          userEmail={userEmail} 
-          isHRUser={isHRUser} 
-        />
+        <HRWellnessDashboard userEmail={userEmail} isHRUser={isHRUser} />
       )}
 
       {/* Personal Analytics View */}
@@ -168,7 +173,9 @@ const EmotionAnalytics = ({ userEmail }) => {
               <div className="no-data-icon">📊</div>
               <h3>No Check-in Data Available</h3>
               <p>Complete your first mental health check-in to see analytics here.</p>
-              <p>Your data will be stored securely and analyzed to provide personalized insights.</p>
+              <p>
+                Your data will be stored securely and analyzed to provide personalized insights.
+              </p>
             </div>
           ) : (
             <>
@@ -184,7 +191,7 @@ const EmotionAnalytics = ({ userEmail }) => {
                       </div>
                       <div className="stat">
                         <span className="stat-label">Average Score</span>
-                        <span 
+                        <span
                           className="stat-value"
                           style={{ color: getMoodColor(analytics.average_score) }}
                         >
@@ -193,7 +200,7 @@ const EmotionAnalytics = ({ userEmail }) => {
                       </div>
                       <div className="stat">
                         <span className="stat-label">Mood Trend</span>
-                        <span 
+                        <span
                           className="stat-value"
                           style={{ color: getTrendColor(analytics.mood_trend) }}
                         >
@@ -205,9 +212,7 @@ const EmotionAnalytics = ({ userEmail }) => {
                         <span className="stat-value">{analytics.most_common_emotion}</span>
                       </div>
                     </div>
-                    <div className="period-covered">
-                      Period: {analytics.period_covered}
-                    </div>
+                    <div className="period-covered">Period: {analytics.period_covered}</div>
                   </div>
 
                   {/* Recommendations */}
@@ -226,7 +231,7 @@ const EmotionAnalytics = ({ userEmail }) => {
                           </li>
                         ))}
                       </ul>
-                      
+
                       {/* LLM Insights Section */}
                       {analytics.llm_insights && analytics.llm_insights.length > 0 && (
                         <div className="llm-insights-section">
@@ -240,7 +245,7 @@ const EmotionAnalytics = ({ userEmail }) => {
                           </ul>
                         </div>
                       )}
-                      
+
                       {/* Latest LLM Report Summary */}
                       {analytics.latest_llm_report && (
                         <div className="latest-llm-summary">
@@ -269,24 +274,26 @@ const EmotionAnalytics = ({ userEmail }) => {
               <div className="checkin-history">
                 <h3>📋 Check-in History</h3>
                 <div className="checkin-list">
-                  {checkins.map((checkin) => (
-                    <div 
-                      key={checkin.checkin_id} 
+                  {checkins.map(checkin => (
+                    <div
+                      key={checkin.checkin_id}
                       className="checkin-item"
-                      onClick={() => setSelectedCheckin(selectedCheckin?.checkin_id === checkin.checkin_id ? null : checkin)}
+                      onClick={() =>
+                        setSelectedCheckin(
+                          selectedCheckin?.checkin_id === checkin.checkin_id ? null : checkin
+                        )
+                      }
                     >
                       <div className="checkin-header">
-                        <div className="checkin-date">
-                          {formatDate(checkin.timestamp)}
-                        </div>
-                        <div 
+                        <div className="checkin-date">{formatDate(checkin.timestamp)}</div>
+                        <div
                           className="checkin-score"
                           style={{ color: getMoodColor(checkin.overall_score || 50) }}
                         >
                           {checkin.overall_score || 50}/100
                         </div>
                       </div>
-                      
+
                       <div className="checkin-details">
                         <div className="detail">
                           <span className="detail-label">Duration:</span>
@@ -295,7 +302,9 @@ const EmotionAnalytics = ({ userEmail }) => {
                         {checkin.emotion_analysis?.dominant_emotion && (
                           <div className="detail">
                             <span className="detail-label">Emotion:</span>
-                            <span className="detail-value">{checkin.emotion_analysis.dominant_emotion}</span>
+                            <span className="detail-value">
+                              {checkin.emotion_analysis.dominant_emotion}
+                            </span>
                           </div>
                         )}
                       </div>
@@ -304,7 +313,7 @@ const EmotionAnalytics = ({ userEmail }) => {
                       {selectedCheckin?.checkin_id === checkin.checkin_id && checkin.llm_report && (
                         <div className="llm-report">
                           <h4>🤖 AI Analysis Report</h4>
-                          
+
                           {checkin.llm_report.emotional_summary && (
                             <div className="report-section">
                               <h5>Emotional Summary</h5>
@@ -312,27 +321,29 @@ const EmotionAnalytics = ({ userEmail }) => {
                             </div>
                           )}
 
-                          {checkin.llm_report.key_insights && checkin.llm_report.key_insights.length > 0 && (
-                            <div className="report-section">
-                              <h5>Key Insights</h5>
-                              <ul>
-                                {checkin.llm_report.key_insights.map((insight, index) => (
-                                  <li key={index}>{insight}</li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
+                          {checkin.llm_report.key_insights &&
+                            checkin.llm_report.key_insights.length > 0 && (
+                              <div className="report-section">
+                                <h5>Key Insights</h5>
+                                <ul>
+                                  {checkin.llm_report.key_insights.map((insight, index) => (
+                                    <li key={index}>{insight}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
 
-                          {checkin.llm_report.recommendations && checkin.llm_report.recommendations.length > 0 && (
-                            <div className="report-section">
-                              <h5>Recommendations</h5>
-                              <ul>
-                                {checkin.llm_report.recommendations.map((rec, index) => (
-                                  <li key={index}>{rec}</li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
+                          {checkin.llm_report.recommendations &&
+                            checkin.llm_report.recommendations.length > 0 && (
+                              <div className="report-section">
+                                <h5>Recommendations</h5>
+                                <ul>
+                                  {checkin.llm_report.recommendations.map((rec, index) => (
+                                    <li key={index}>{rec}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
 
                           {checkin.llm_report.trend_analysis && (
                             <div className="report-section">
@@ -369,4 +380,4 @@ const EmotionAnalytics = ({ userEmail }) => {
   );
 };
 
-export default EmotionAnalytics; 
+export default EmotionAnalytics;

@@ -88,8 +88,12 @@
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .error-message {
@@ -159,7 +163,8 @@
   margin-bottom: 30px;
 }
 
-.summary-card, .recommendations-card {
+.summary-card,
+.recommendations-card {
   background: white;
   border-radius: 16px;
   padding: 30px;
@@ -170,7 +175,8 @@
   overflow: hidden;
 }
 
-.summary-card::before, .recommendations-card::before {
+.summary-card::before,
+.recommendations-card::before {
   content: '';
   position: absolute;
   top: 0;
@@ -180,12 +186,14 @@
   background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
 }
 
-.summary-card:hover, .recommendations-card:hover {
+.summary-card:hover,
+.recommendations-card:hover {
   transform: translateY(-5px);
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
 }
 
-.summary-card h3, .recommendations-card h3 {
+.summary-card h3,
+.recommendations-card h3 {
   margin: 0 0 25px 0;
   color: #1f2937;
   font-size: 1.25rem;
@@ -266,7 +274,7 @@
 }
 
 .recommendation-item::before {
-  content: "💡";
+  content: '💡';
   margin-right: 12px;
   font-size: 16px;
 }
@@ -479,8 +487,13 @@
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
 }
 
 .llm-insights-section {
@@ -520,7 +533,7 @@
 }
 
 .insight-item::before {
-  content: "🧠";
+  content: '🧠';
   margin-right: 8px;
 }
 

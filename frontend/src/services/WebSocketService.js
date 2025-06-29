@@ -10,14 +10,14 @@ class WebSocketService {
   connect() {
     try {
       this.ws = new WebSocket(this.url);
-      
+
       this.ws.onopen = () => {
         console.log('WebSocket connected');
         this.emit('connect');
         this.clearReconnectTimer();
       };
 
-      this.ws.onmessage = (event) => {
+      this.ws.onmessage = event => {
         try {
           const data = JSON.parse(event.data);
           this.emit('emotionUpdate', data);
@@ -32,7 +32,7 @@ class WebSocketService {
         this.scheduleReconnect();
       };
 
-      this.ws.onerror = (error) => {
+      this.ws.onerror = error => {
         console.error('WebSocket error:', error);
         this.emit('error', error);
       };
@@ -114,4 +114,4 @@ class WebSocketService {
 }
 
 const webSocketService = new WebSocketService();
-export default webSocketService; 
+export default webSocketService;

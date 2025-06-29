@@ -22,17 +22,16 @@ const HRWellnessDashboard = ({ userEmail, isHRUser = false }) => {
     try {
       setLoading(true);
       setError(null);
-      
+
       // Call the actual API for HR wellness data
       const data = await ApiService.getHRWellnessData({
         user_id: userEmail,
         time_range: timeRange,
         department: filterDepartment,
-        risk_level: riskLevel
+        risk_level: riskLevel,
       });
-      
+
       setWellnessData(data);
-      
     } catch (err) {
       console.error('Failed to load wellness data:', err);
       setError('Failed to load wellness data. Please try again.');
@@ -41,53 +40,66 @@ const HRWellnessDashboard = ({ userEmail, isHRUser = false }) => {
     }
   };
 
-  const getRiskColor = (score) => {
+  const getRiskColor = score => {
     if (score >= 80) return '#EF4444'; // Red - High risk
     if (score >= 60) return '#F59E0B'; // Yellow - Medium risk
     return '#10B981'; // Green - Low risk
   };
 
-  const getRiskLevel = (score) => {
+  const getRiskLevel = score => {
     if (score >= 80) return 'High';
     if (score >= 60) return 'Medium';
     return 'Low';
   };
 
-  const getTrendIcon = (trend) => {
+  const getTrendIcon = trend => {
     switch (trend) {
-      case 'improving': return '📈';
-      case 'declining': return '📉';
-      case 'stable': return '➡️';
-      default: return '❓';
+      case 'improving':
+        return '📈';
+      case 'declining':
+        return '📉';
+      case 'stable':
+        return '➡️';
+      default:
+        return '❓';
     }
   };
 
-  const getTrendColor = (trend) => {
+  const getTrendColor = trend => {
     switch (trend) {
-      case 'improving': return '#10B981';
-      case 'declining': return '#EF4444';
-      case 'stable': return '#6B7280';
-      default: return '#9CA3AF';
+      case 'improving':
+        return '#10B981';
+      case 'declining':
+        return '#EF4444';
+      case 'stable':
+        return '#6B7280';
+      default:
+        return '#9CA3AF';
     }
   };
 
-  const formatDate = (timestamp) => {
+  const formatDate = timestamp => {
     return new Date(timestamp).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     });
   };
 
-  const getInterventionStatusColor = (status) => {
+  const getInterventionStatusColor = status => {
     switch (status) {
-      case 'completed': return '#10B981';
-      case 'active': return '#3B82F6';
-      case 'scheduled': return '#F59E0B';
-      case 'pending': return '#6B7280';
-      default: return '#9CA3AF';
+      case 'completed':
+        return '#10B981';
+      case 'active':
+        return '#3B82F6';
+      case 'scheduled':
+        return '#F59E0B';
+      case 'pending':
+        return '#6B7280';
+      default:
+        return '#9CA3AF';
     }
   };
 
@@ -137,28 +149,30 @@ const HRWellnessDashboard = ({ userEmail, isHRUser = false }) => {
       <div className="dashboard-header">
         <h2>🏢 HR Wellness Dashboard</h2>
         <div className="header-controls">
-          <select 
-            value={timeRange} 
-            onChange={(e) => setTimeRange(Number(e.target.value))}
+          <select
+            value={timeRange}
+            onChange={e => setTimeRange(Number(e.target.value))}
             className="time-range-select"
           >
             <option value={7}>Last 7 days</option>
             <option value={30}>Last 30 days</option>
             <option value={90}>Last 90 days</option>
           </select>
-          <select 
-            value={filterDepartment} 
-            onChange={(e) => setFilterDepartment(e.target.value)}
+          <select
+            value={filterDepartment}
+            onChange={e => setFilterDepartment(e.target.value)}
             className="department-select"
           >
             <option value="all">All Departments</option>
             {wellnessData.departments?.map(dept => (
-              <option key={dept.name} value={dept.name}>{dept.name}</option>
+              <option key={dept.name} value={dept.name}>
+                {dept.name}
+              </option>
             ))}
           </select>
-          <select 
-            value={riskLevel} 
-            onChange={(e) => setRiskLevel(e.target.value)}
+          <select
+            value={riskLevel}
+            onChange={e => setRiskLevel(e.target.value)}
             className="risk-select"
           >
             <option value="all">All Risk Levels</option>
@@ -173,19 +187,19 @@ const HRWellnessDashboard = ({ userEmail, isHRUser = false }) => {
       </div>
 
       <div className="view-mode-tabs">
-        <button 
+        <button
           className={`tab ${viewMode === 'overview' ? 'active' : ''}`}
           onClick={() => setViewMode('overview')}
         >
           📊 Overview
         </button>
-        <button 
+        <button
           className={`tab ${viewMode === 'details' ? 'active' : ''}`}
           onClick={() => setViewMode('details')}
         >
           👥 Employee Details
         </button>
-        <button 
+        <button
           className={`tab ${viewMode === 'interventions' ? 'active' : ''}`}
           onClick={() => setViewMode('interventions')}
         >
@@ -202,25 +216,33 @@ const HRWellnessDashboard = ({ userEmail, isHRUser = false }) => {
                 {wellnessData.company_metrics.total_employees && (
                   <div className="metric">
                     <span className="metric-label">Total Employees</span>
-                    <span className="metric-value">{wellnessData.company_metrics.total_employees}</span>
+                    <span className="metric-value">
+                      {wellnessData.company_metrics.total_employees}
+                    </span>
                   </div>
                 )}
                 {wellnessData.company_metrics.participation_rate && (
                   <div className="metric">
                     <span className="metric-label">Participation Rate</span>
-                    <span className="metric-value">{wellnessData.company_metrics.participation_rate}%</span>
+                    <span className="metric-value">
+                      {wellnessData.company_metrics.participation_rate}%
+                    </span>
                   </div>
                 )}
                 {wellnessData.company_metrics.avg_wellness_score && (
                   <div className="metric">
                     <span className="metric-label">Avg Wellness Score</span>
-                    <span className="metric-value">{wellnessData.company_metrics.avg_wellness_score}/100</span>
+                    <span className="metric-value">
+                      {wellnessData.company_metrics.avg_wellness_score}/100
+                    </span>
                   </div>
                 )}
                 {wellnessData.company_metrics.burnout_risk_rate && (
                   <div className="metric">
                     <span className="metric-label">Burnout Risk Rate</span>
-                    <span className="metric-value risk">{wellnessData.company_metrics.burnout_risk_rate}%</span>
+                    <span className="metric-value risk">
+                      {wellnessData.company_metrics.burnout_risk_rate}%
+                    </span>
                   </div>
                 )}
               </div>
@@ -232,12 +254,16 @@ const HRWellnessDashboard = ({ userEmail, isHRUser = false }) => {
                 <div className="alert-stats">
                   <div className="alert-item">
                     <span className="alert-label">High Risk Employees</span>
-                    <span className="alert-value">{wellnessData.company_metrics.high_risk_employees}</span>
+                    <span className="alert-value">
+                      {wellnessData.company_metrics.high_risk_employees}
+                    </span>
                   </div>
                   {wellnessData.company_metrics.interventions_needed && (
                     <div className="alert-item">
                       <span className="alert-label">Interventions Needed</span>
-                      <span className="alert-value urgent">{wellnessData.company_metrics.interventions_needed}</span>
+                      <span className="alert-value urgent">
+                        {wellnessData.company_metrics.interventions_needed}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -272,7 +298,9 @@ const HRWellnessDashboard = ({ userEmail, isHRUser = false }) => {
                       {dept.high_risk && dept.employees && (
                         <div className="dept-stat">
                           <span className="stat-label">High Risk</span>
-                          <span className="stat-value">{dept.high_risk}/{dept.employees}</span>
+                          <span className="stat-value">
+                            {dept.high_risk}/{dept.employees}
+                          </span>
                         </div>
                       )}
                     </div>
@@ -297,11 +325,11 @@ const HRWellnessDashboard = ({ userEmail, isHRUser = false }) => {
                         <div key={week.week || index} className="trend-bar">
                           <div className="bar-label">{week.week}</div>
                           <div className="bar-container">
-                            <div 
-                              className="bar" 
-                              style={{ 
+                            <div
+                              className="bar"
+                              style={{
                                 height: `${week.avg_score}%`,
-                                backgroundColor: getRiskColor(week.avg_score)
+                                backgroundColor: getRiskColor(week.avg_score),
                               }}
                             ></div>
                           </div>
@@ -318,16 +346,27 @@ const HRWellnessDashboard = ({ userEmail, isHRUser = false }) => {
                     <div className="comparison-stats">
                       <div className="comparison-item">
                         <span className="comparison-label">Current Month</span>
-                        <span className="comparison-value">{wellnessData.wellness_trends.monthly_comparison.current_month.avg_score}/100</span>
+                        <span className="comparison-value">
+                          {wellnessData.wellness_trends.monthly_comparison.current_month.avg_score}
+                          /100
+                        </span>
                       </div>
                       <div className="comparison-item">
                         <span className="comparison-label">Previous Month</span>
-                        <span className="comparison-value">{wellnessData.wellness_trends.monthly_comparison.previous_month.avg_score}/100</span>
+                        <span className="comparison-value">
+                          {wellnessData.wellness_trends.monthly_comparison.previous_month.avg_score}
+                          /100
+                        </span>
                       </div>
                       <div className="comparison-change">
                         <span className="change-label">Change</span>
                         <span className="change-value positive">
-                          +{(wellnessData.wellness_trends.monthly_comparison.current_month.avg_score - wellnessData.wellness_trends.monthly_comparison.previous_month.avg_score).toFixed(1)}
+                          +
+                          {(
+                            wellnessData.wellness_trends.monthly_comparison.current_month
+                              .avg_score -
+                            wellnessData.wellness_trends.monthly_comparison.previous_month.avg_score
+                          ).toFixed(1)}
                         </span>
                       </div>
                     </div>
@@ -347,10 +386,12 @@ const HRWellnessDashboard = ({ userEmail, isHRUser = false }) => {
               .filter(emp => filterDepartment === 'all' || emp.department === filterDepartment)
               .filter(emp => riskLevel === 'all' || emp.risk_level === riskLevel)
               .map(employee => (
-                <div 
-                  key={employee.id} 
+                <div
+                  key={employee.id}
                   className={`employee-card ${employee.risk_level}`}
-                  onClick={() => setSelectedEmployee(selectedEmployee?.id === employee.id ? null : employee)}
+                  onClick={() =>
+                    setSelectedEmployee(selectedEmployee?.id === employee.id ? null : employee)
+                  }
                 >
                   <div className="employee-header">
                     <div className="employee-info">
@@ -361,7 +402,7 @@ const HRWellnessDashboard = ({ userEmail, isHRUser = false }) => {
                       <p className="employee-email">{employee.email}</p>
                     </div>
                     <div className="employee-risk">
-                      <div 
+                      <div
                         className="risk-score"
                         style={{ color: getRiskColor(employee.risk_score) }}
                       >
@@ -369,7 +410,7 @@ const HRWellnessDashboard = ({ userEmail, isHRUser = false }) => {
                       </div>
                       <div className="risk-level">{getRiskLevel(employee.risk_score)} Risk</div>
                       {employee.trend && (
-                        <div 
+                        <div
                           className="trend-indicator"
                           style={{ color: getTrendColor(employee.trend) }}
                         >
@@ -401,7 +442,9 @@ const HRWellnessDashboard = ({ userEmail, isHRUser = false }) => {
                           <h5>🎯 Recommendations</h5>
                           <ul className="recommendations-list">
                             {employee.recommendations.map((rec, index) => (
-                              <li key={index} className="recommendation-item">{rec}</li>
+                              <li key={index} className="recommendation-item">
+                                {rec}
+                              </li>
                             ))}
                           </ul>
                         </div>
@@ -414,10 +457,14 @@ const HRWellnessDashboard = ({ userEmail, isHRUser = false }) => {
                             {employee.interventions.map((intervention, index) => (
                               <div key={index} className="intervention-item">
                                 <div className="intervention-info">
-                                  <span className="intervention-type">{intervention.type.replace('_', ' ')}</span>
-                                  <span 
+                                  <span className="intervention-type">
+                                    {intervention.type.replace('_', ' ')}
+                                  </span>
+                                  <span
                                     className="intervention-status"
-                                    style={{ color: getInterventionStatusColor(intervention.status) }}
+                                    style={{
+                                      color: getInterventionStatusColor(intervention.status),
+                                    }}
                                   >
                                     {intervention.status}
                                   </span>
@@ -461,7 +508,7 @@ const HRWellnessDashboard = ({ userEmail, isHRUser = false }) => {
                 </div>
                 <div className="intervention-progress">
                   <div className="progress-bar">
-                    <div 
+                    <div
                       className="progress-fill"
                       style={{ width: `${intervention.success_rate}%` }}
                     ></div>
@@ -490,4 +537,4 @@ const HRWellnessDashboard = ({ userEmail, isHRUser = false }) => {
   );
 };
 
-export default HRWellnessDashboard; 
+export default HRWellnessDashboard;

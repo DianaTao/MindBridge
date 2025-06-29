@@ -1,14 +1,14 @@
 import React, { useState, useCallback } from 'react';
 import ApiService from '../services/ApiService';
 
-const TextAnalysis = ({ onEmotionDetected, onProcessingChange, userEmail, className = '' }) => {
+const TextAnalysis = ({ onEmotionDetected, onProcessingChange, className = '' }) => {
   const [text, setText] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [lastResult, setLastResult] = useState(null);
   const [error, setError] = useState(null);
   const [charCount, setCharCount] = useState(0);
 
-  const handleTextChange = useCallback((e) => {
+  const handleTextChange = useCallback(e => {
     const newText = e.target.value;
     setText(newText);
     setCharCount(newText.length);
@@ -34,24 +34,23 @@ const TextAnalysis = ({ onEmotionDetected, onProcessingChange, userEmail, classN
       const result = await ApiService.analyzeText({
         text: text.trim(),
         user_id: `demo-user-${Math.random().toString(36).substr(2, 9)}`,
-        session_id: `session-${Date.now()}`
+        session_id: `session-${Date.now()}`,
       });
 
       console.log('✅ Text analysis result:', result);
       setLastResult(result);
-      
+
       if (onEmotionDetected) {
         onEmotionDetected(result);
       }
-
     } catch (err) {
       console.error('❌ Text analysis failed:', err);
       console.error('Error details:', {
         message: err.message,
         name: err.name,
-        stack: err.stack
+        stack: err.stack,
       });
-      
+
       let errorMessage = 'Text analysis failed';
       if (err.message.includes('analyzeText is not a function')) {
         errorMessage = 'Text analysis service not available. Please try again later.';
@@ -60,7 +59,7 @@ const TextAnalysis = ({ onEmotionDetected, onProcessingChange, userEmail, classN
       } else {
         errorMessage = err.message || 'Text analysis failed';
       }
-      
+
       setError(errorMessage);
     } finally {
       setIsAnalyzing(false);
@@ -75,12 +74,12 @@ const TextAnalysis = ({ onEmotionDetected, onProcessingChange, userEmail, classN
     setError(null);
   }, []);
 
-  const getEmotionColor = (emotion) => {
+  const getEmotionColor = emotion => {
     // Handle undefined or null emotion values
     if (!emotion || typeof emotion !== 'string') {
       return '#9CA3AF'; // Default gray color
     }
-    
+
     const colors = {
       happy: '#10B981',
       sad: '#3B82F6',
@@ -90,35 +89,35 @@ const TextAnalysis = ({ onEmotionDetected, onProcessingChange, userEmail, classN
       calm: '#6B7280',
       excited: '#F97316',
       confused: '#8B5CF6',
-      neutral: '#9CA3AF'
+      neutral: '#9CA3AF',
     };
     return colors[emotion.toLowerCase()] || '#9CA3AF';
   };
 
-  const getSentimentColor = (sentiment) => {
+  const getSentimentColor = sentiment => {
     // Handle undefined or null sentiment values
     if (!sentiment || typeof sentiment !== 'string') {
       return '#6B7280'; // Default gray color
     }
-    
+
     const colors = {
       positive: '#10B981',
       negative: '#EF4444',
-      neutral: '#6B7280'
+      neutral: '#6B7280',
     };
     return colors[sentiment.toLowerCase()] || '#6B7280';
   };
 
-  const getSentimentIcon = (sentiment) => {
+  const getSentimentIcon = sentiment => {
     // Handle undefined or null sentiment values
     if (!sentiment || typeof sentiment !== 'string') {
       return '😐'; // Default neutral icon
     }
-    
+
     const icons = {
       positive: '😊',
       negative: '😔',
-      neutral: '😐'
+      neutral: '😐',
     };
     return icons[sentiment.toLowerCase()] || '😐';
   };
@@ -141,9 +140,7 @@ const TextAnalysis = ({ onEmotionDetected, onProcessingChange, userEmail, classN
               disabled={isAnalyzing}
               maxLength={1000}
             />
-            <div className="absolute bottom-2 right-2 text-xs text-gray-500">
-              {charCount}/1000
-            </div>
+            <div className="absolute bottom-2 right-2 text-xs text-gray-500">{charCount}/1000</div>
           </div>
         </div>
 
@@ -200,12 +197,12 @@ const TextAnalysis = ({ onEmotionDetected, onProcessingChange, userEmail, classN
       {lastResult && (
         <div className="bg-gray-50 rounded-lg p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Analysis Results</h3>
-          
+
           <div className="space-y-4">
             {/* Primary Emotion */}
             <div className="flex items-center justify-between p-3 bg-white rounded-lg border">
               <span className="font-medium">Primary Emotion:</span>
-              <span 
+              <span
                 className="px-3 py-1 rounded-full text-white font-semibold"
                 style={{ backgroundColor: getEmotionColor(lastResult.primary_emotion) }}
               >
@@ -227,7 +224,7 @@ const TextAnalysis = ({ onEmotionDetected, onProcessingChange, userEmail, classN
                 <span className="font-medium">Sentiment:</span>
                 <div className="flex items-center space-x-2">
                   <span className="text-lg">{getSentimentIcon(lastResult.sentiment)}</span>
-                  <span 
+                  <span
                     className="font-semibold capitalize"
                     style={{ color: getSentimentColor(lastResult.sentiment) }}
                   >
@@ -278,16 +275,24 @@ const TextAnalysis = ({ onEmotionDetected, onProcessingChange, userEmail, classN
                 {/* Emotional Context */}
                 {lastResult.llm_analysis.emotional_context && (
                   <div className="p-3 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200">
-                    <span className="font-medium block mb-2 text-purple-800">🧠 AI Emotional Context:</span>
-                    <p className="text-purple-700 text-sm">{lastResult.llm_analysis.emotional_context}</p>
+                    <span className="font-medium block mb-2 text-purple-800">
+                      🧠 AI Emotional Context:
+                    </span>
+                    <p className="text-purple-700 text-sm">
+                      {lastResult.llm_analysis.emotional_context}
+                    </p>
                   </div>
                 )}
 
                 {/* AI Recommendations */}
                 {lastResult.llm_analysis.recommendations && (
                   <div className="p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
-                    <span className="font-medium block mb-2 text-green-800">💡 AI Recommendations:</span>
-                    <p className="text-green-700 text-sm">{lastResult.llm_analysis.recommendations}</p>
+                    <span className="font-medium block mb-2 text-green-800">
+                      💡 AI Recommendations:
+                    </span>
+                    <p className="text-green-700 text-sm">
+                      {lastResult.llm_analysis.recommendations}
+                    </p>
                   </div>
                 )}
 
@@ -314,4 +319,4 @@ const TextAnalysis = ({ onEmotionDetected, onProcessingChange, userEmail, classN
   );
 };
 
-export default TextAnalysis; 
+export default TextAnalysis;

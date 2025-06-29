@@ -1,25 +1,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Progress } from './ui/progress';
-import { 
-  Play, 
-  Pause, 
-  Download, 
-  Filter, 
-  Search, 
-  TrendingUp, 
-  TrendingDown,
+import {
+  Play,
+  Download,
+  Search,
   Clock,
-  User,
   Phone,
   MessageSquare,
   AlertCircle,
   CheckCircle,
-  XCircle
+  XCircle,
 } from 'lucide-react';
 
 const AutomatedCallDashboard = () => {
@@ -30,7 +24,7 @@ const AutomatedCallDashboard = () => {
     status: 'all',
     agentId: 'all',
     sentiment: 'all',
-    dateRange: '7d'
+    dateRange: '7d',
   });
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCall, setSelectedCall] = useState(null);
@@ -39,7 +33,7 @@ const AutomatedCallDashboard = () => {
     completedCalls: 0,
     processingCalls: 0,
     averageEmpathyScore: 0,
-    averageQualityScore: 0
+    averageQualityScore: 0,
   });
 
   // Mock data for demonstration
@@ -57,15 +51,36 @@ const AutomatedCallDashboard = () => {
           customerSentiment: 'positive',
           agentEmpathyScore: 8.5,
           qualityScore: 9.2,
-          summary: 'Agent successfully resolved billing dispute with excellent empathy. Customer satisfaction improved from frustrated to satisfied.',
+          summary:
+            'Agent successfully resolved billing dispute with excellent empathy. Customer satisfaction improved from frustrated to satisfied.',
           keyPhrases: ['billing error', 'refund', 'apology', 'resolution'],
           emotionTimeline: [
-            { time: '00:00', agent: 'calm', customer: 'frustrated', text: 'Hello, I have a billing issue...' },
-            { time: '01:30', agent: 'empathetic', customer: 'concerned', text: 'I understand your frustration...' },
-            { time: '03:45', agent: 'helpful', customer: 'relieved', text: 'I can help you with that...' },
-            { time: '05:00', agent: 'satisfied', customer: 'satisfied', text: 'Thank you for your help!' }
-          ]
-        }
+            {
+              time: '00:00',
+              agent: 'calm',
+              customer: 'frustrated',
+              text: 'Hello, I have a billing issue...',
+            },
+            {
+              time: '01:30',
+              agent: 'empathetic',
+              customer: 'concerned',
+              text: 'I understand your frustration...',
+            },
+            {
+              time: '03:45',
+              agent: 'helpful',
+              customer: 'relieved',
+              text: 'I can help you with that...',
+            },
+            {
+              time: '05:00',
+              agent: 'satisfied',
+              customer: 'satisfied',
+              text: 'Thank you for your help!',
+            },
+          ],
+        },
       },
       {
         callId: 'call_002',
@@ -82,9 +97,14 @@ const AutomatedCallDashboard = () => {
           summary: 'Call is being processed. Analysis will be available shortly.',
           keyPhrases: ['processing'],
           emotionTimeline: [
-            { time: '00:00', agent: 'processing', customer: 'processing', text: 'Analysis in progress...' }
-          ]
-        }
+            {
+              time: '00:00',
+              agent: 'processing',
+              customer: 'processing',
+              text: 'Analysis in progress...',
+            },
+          ],
+        },
       },
       {
         callId: 'call_003',
@@ -98,16 +118,37 @@ const AutomatedCallDashboard = () => {
           customerSentiment: 'neutral',
           agentEmpathyScore: 6.8,
           qualityScore: 7.1,
-          summary: 'Standard technical support call. Agent provided adequate assistance but could improve empathy.',
+          summary:
+            'Standard technical support call. Agent provided adequate assistance but could improve empathy.',
           keyPhrases: ['technical issue', 'password reset', 'account access'],
           emotionTimeline: [
-            { time: '00:00', agent: 'professional', customer: 'neutral', text: 'I need help with my account...' },
-            { time: '02:15', agent: 'helpful', customer: 'slightly frustrated', text: 'Let me guide you through this...' },
-            { time: '05:30', agent: 'patient', customer: 'relieved', text: 'I see the issue now...' },
-            { time: '07:30', agent: 'satisfied', customer: 'satisfied', text: 'Thank you for your patience!' }
-          ]
-        }
-      }
+            {
+              time: '00:00',
+              agent: 'professional',
+              customer: 'neutral',
+              text: 'I need help with my account...',
+            },
+            {
+              time: '02:15',
+              agent: 'helpful',
+              customer: 'slightly frustrated',
+              text: 'Let me guide you through this...',
+            },
+            {
+              time: '05:30',
+              agent: 'patient',
+              customer: 'relieved',
+              text: 'I see the issue now...',
+            },
+            {
+              time: '07:30',
+              agent: 'satisfied',
+              customer: 'satisfied',
+              text: 'Thank you for your patience!',
+            },
+          ],
+        },
+      },
     ];
     return mockCalls;
   }, []);
@@ -119,23 +160,25 @@ const AutomatedCallDashboard = () => {
       setCalls(mockCalls);
       setFilteredCalls(mockCalls);
       setLoading(false);
-      
+
       // Calculate stats
       const completed = mockCalls.filter(call => call.status === 'completed').length;
       const processing = mockCalls.filter(call => call.status === 'processing').length;
-      const avgEmpathy = mockCalls
-        .filter(call => call.status === 'completed')
-        .reduce((sum, call) => sum + call.analysis.agentEmpathyScore, 0) / completed || 0;
-      const avgQuality = mockCalls
-        .filter(call => call.status === 'completed')
-        .reduce((sum, call) => sum + call.analysis.qualityScore, 0) / completed || 0;
-      
+      const avgEmpathy =
+        mockCalls
+          .filter(call => call.status === 'completed')
+          .reduce((sum, call) => sum + call.analysis.agentEmpathyScore, 0) / completed || 0;
+      const avgQuality =
+        mockCalls
+          .filter(call => call.status === 'completed')
+          .reduce((sum, call) => sum + call.analysis.qualityScore, 0) / completed || 0;
+
       setStats({
         totalCalls: mockCalls.length,
         completedCalls: completed,
         processingCalls: processing,
         averageEmpathyScore: avgEmpathy,
-        averageQualityScore: avgQuality
+        averageQualityScore: avgQuality,
       });
     }, 1000);
   }, [generateMockCalls]);
@@ -161,17 +204,18 @@ const AutomatedCallDashboard = () => {
 
     // Apply search
     if (searchTerm) {
-      filtered = filtered.filter(call => 
-        call.callId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        call.agentId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        call.analysis.summary.toLowerCase().includes(searchTerm.toLowerCase())
+      filtered = filtered.filter(
+        call =>
+          call.callId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          call.agentId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          call.analysis.summary.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
     setFilteredCalls(filtered);
   }, [calls, filters, searchTerm]);
 
-  const getStatusIcon = (status) => {
+  const getStatusIcon = status => {
     switch (status) {
       case 'completed':
         return <CheckCircle className="w-4 h-4 text-green-500" />;
@@ -184,7 +228,7 @@ const AutomatedCallDashboard = () => {
     }
   };
 
-  const getSentimentColor = (sentiment) => {
+  const getSentimentColor = sentiment => {
     switch (sentiment) {
       case 'positive':
         return 'bg-green-100 text-green-800';
@@ -197,15 +241,15 @@ const AutomatedCallDashboard = () => {
     }
   };
 
-  const formatDuration = (duration) => {
+  const formatDuration = duration => {
     return duration;
   };
 
-  const formatTimestamp = (timestamp) => {
+  const formatTimestamp = timestamp => {
     return new Date(timestamp).toLocaleString();
   };
 
-  const getQualityColor = (score) => {
+  const getQualityColor = score => {
     if (score >= 8) return 'text-green-600';
     if (score >= 6) return 'text-yellow-600';
     return 'text-red-600';
@@ -234,7 +278,7 @@ const AutomatedCallDashboard = () => {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center space-x-2">
@@ -246,7 +290,7 @@ const AutomatedCallDashboard = () => {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center space-x-2">
@@ -258,7 +302,7 @@ const AutomatedCallDashboard = () => {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center space-x-2">
@@ -270,7 +314,7 @@ const AutomatedCallDashboard = () => {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center space-x-2">
@@ -294,13 +338,16 @@ const AutomatedCallDashboard = () => {
                 <Input
                   placeholder="Search calls, agents, or content..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={e => setSearchTerm(e.target.value)}
                   className="pl-10"
                 />
               </div>
             </div>
-            
-            <Select value={filters.status} onValueChange={(value) => setFilters({...filters, status: value})}>
+
+            <Select
+              value={filters.status}
+              onValueChange={value => setFilters({ ...filters, status: value })}
+            >
               <SelectTrigger className="w-full md:w-40">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
@@ -311,8 +358,11 @@ const AutomatedCallDashboard = () => {
                 <SelectItem value="failed">Failed</SelectItem>
               </SelectContent>
             </Select>
-            
-            <Select value={filters.sentiment} onValueChange={(value) => setFilters({...filters, sentiment: value})}>
+
+            <Select
+              value={filters.sentiment}
+              onValueChange={value => setFilters({ ...filters, sentiment: value })}
+            >
               <SelectTrigger className="w-full md:w-40">
                 <SelectValue placeholder="Sentiment" />
               </SelectTrigger>
@@ -323,8 +373,11 @@ const AutomatedCallDashboard = () => {
                 <SelectItem value="neutral">Neutral</SelectItem>
               </SelectContent>
             </Select>
-            
-            <Select value={filters.dateRange} onValueChange={(value) => setFilters({...filters, dateRange: value})}>
+
+            <Select
+              value={filters.dateRange}
+              onValueChange={value => setFilters({ ...filters, dateRange: value })}
+            >
               <SelectTrigger className="w-full md:w-40">
                 <SelectValue placeholder="Date Range" />
               </SelectTrigger>
@@ -341,7 +394,7 @@ const AutomatedCallDashboard = () => {
 
       {/* Calls List */}
       <div className="space-y-4">
-        {filteredCalls.map((call) => (
+        {filteredCalls.map(call => (
           <Card key={call.callId} className="hover:shadow-md transition-shadow">
             <CardContent className="p-6">
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
@@ -359,7 +412,7 @@ const AutomatedCallDashboard = () => {
                       {call.analysis.customerSentiment}
                     </Badge>
                   </div>
-                  
+
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                     <div>
                       <p className="text-gray-600">Agent</p>
@@ -371,7 +424,9 @@ const AutomatedCallDashboard = () => {
                     </div>
                     <div>
                       <p className="text-gray-600">Empathy Score</p>
-                      <p className={`font-medium ${getQualityColor(call.analysis.agentEmpathyScore)}`}>
+                      <p
+                        className={`font-medium ${getQualityColor(call.analysis.agentEmpathyScore)}`}
+                      >
                         {call.analysis.agentEmpathyScore}/10
                       </p>
                     </div>
@@ -382,12 +437,12 @@ const AutomatedCallDashboard = () => {
                       </p>
                     </div>
                   </div>
-                  
+
                   <div>
                     <p className="text-gray-600 text-sm">Summary</p>
                     <p className="text-sm">{call.analysis.summary}</p>
                   </div>
-                  
+
                   <div className="flex flex-wrap gap-2">
                     {call.analysis.keyPhrases.slice(0, 3).map((phrase, index) => (
                       <Badge key={index} variant="outline" className="text-xs">
@@ -396,18 +451,12 @@ const AutomatedCallDashboard = () => {
                     ))}
                   </div>
                 </div>
-                
+
                 {/* Actions */}
                 <div className="flex flex-col space-y-2">
-                  <div className="text-xs text-gray-500">
-                    {formatTimestamp(call.timestamp)}
-                  </div>
+                  <div className="text-xs text-gray-500">{formatTimestamp(call.timestamp)}</div>
                   <div className="flex space-x-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setSelectedCall(call)}
-                    >
+                    <Button size="sm" variant="outline" onClick={() => setSelectedCall(call)}>
                       <Play className="w-4 h-4 mr-1" />
                       Review
                     </Button>
@@ -437,4 +486,4 @@ const AutomatedCallDashboard = () => {
   );
 };
 
-export default AutomatedCallDashboard; 
+export default AutomatedCallDashboard;

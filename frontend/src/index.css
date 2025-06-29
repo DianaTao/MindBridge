@@ -8,15 +8,16 @@ body {
 }
 
 code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
 }
 
 * {
   box-sizing: border-box;
 }
 
-html, body, #root {
+html,
+body,
+#root {
   height: 100%;
   margin: 0;
   padding: 0;
@@ -38,7 +39,8 @@ html, body, #root {
 
 /* Floating particles animation */
 @keyframes float {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0px) translateX(0px);
     opacity: 0.2;
   }
@@ -62,7 +64,8 @@ html, body, #root {
 
 /* Slow pulse animation for background elements */
 @keyframes pulse-slow {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.1;
     transform: scale(1);
   }
@@ -154,7 +157,7 @@ html, body, #root {
   .lg\:grid-cols-4 {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
-  
+
   .lg\:col-span-3 {
     grid-column: span 3 / span 3;
   }
@@ -192,11 +195,12 @@ html, body, #root {
 }
 
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
   50% {
-    opacity: .5;
+    opacity: 0.5;
   }
 }
 
@@ -249,7 +253,7 @@ html, body, #root {
     padding-left: 1.5rem;
     padding-right: 1.5rem;
   }
-  
+
   .sm\:inline {
     display: inline;
   }
@@ -590,11 +594,15 @@ html, body, #root {
 
 /* Shadow utilities */
 .shadow-lg {
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  box-shadow:
+    0 10px 15px -3px rgba(0, 0, 0, 0.1),
+    0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
 .shadow-xl {
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  box-shadow:
+    0 20px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
 .shadow-2xl {
@@ -848,7 +856,8 @@ html, body, #root {
 }
 
 .via-purple-900 {
-  --tw-gradient-stops: var(--tw-gradient-from), #581c87, var(--tw-gradient-to, rgba(88, 28, 135, 0));
+  --tw-gradient-stops:
+    var(--tw-gradient-from), #581c87, var(--tw-gradient-to, rgba(88, 28, 135, 0));
 }
 
 .to-slate-900 {
@@ -861,7 +870,8 @@ html, body, #root {
 }
 
 .via-purple-200 {
-  --tw-gradient-stops: var(--tw-gradient-from), #e9d5ff, var(--tw-gradient-to, rgba(233, 213, 255, 0));
+  --tw-gradient-stops:
+    var(--tw-gradient-from), #e9d5ff, var(--tw-gradient-to, rgba(233, 213, 255, 0));
 }
 
 .to-pink-200 {
@@ -1038,7 +1048,8 @@ html, body, #root {
 
 /* Neural scan active animation */
 @keyframes neural-scan {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.8;
     transform: scale(1);
   }
@@ -1083,4 +1094,4 @@ html, body, #root {
   .text-responsive {
     font-size: 1.125rem;
   }
-} 
+}

@@ -59,6 +59,8 @@
   "devDependencies": {
     "@types/socket.io-client": "^3.0.0",
     "eslint": "^8.50.0",
+    "eslint-config-prettier": "^10.1.5",
+    "eslint-plugin-prettier": "^5.5.1",
     "prettier": "^3.0.0"
   },
   "proxy": "http://localhost:3000",

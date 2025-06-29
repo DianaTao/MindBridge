@@ -1,18 +1,12 @@
 import React from 'react';
 
-export const Progress = ({ 
-  value = 0, 
-  className = "", 
-  max = 100,
-  showLabel = false,
-  ...props 
-}) => {
+export const Progress = ({ value = 0, className = '', max = 100, showLabel = false, ...props }) => {
   const percentage = Math.min(Math.max((value / max) * 100, 0), 100);
-  
+
   return (
     <div className={`w-full ${className}`} {...props}>
       <div className="w-full bg-blue-100 rounded-full h-2 overflow-hidden">
-        <div 
+        <div
           className="h-full bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full transition-all duration-300 ease-out"
           style={{ width: `${percentage}%` }}
         />
@@ -27,4 +21,4 @@ export const Progress = ({
       )}
     </div>
   );
-}; 
+};

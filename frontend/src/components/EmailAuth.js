@@ -20,9 +20,9 @@ const EmailAuth = ({ onAuthChange }) => {
     }
   }, [onAuthChange]);
 
-  const handleSignIn = async (e) => {
+  const handleSignIn = async e => {
     e.preventDefault();
-    
+
     if (!email || !email.includes('@')) {
       setError('Please enter a valid email address');
       return;
@@ -35,17 +35,16 @@ const EmailAuth = ({ onAuthChange }) => {
       // Simple email validation and authentication
       // In a real app, you'd call an authentication service
       const userEmail = email.toLowerCase().trim();
-      
+
       // Store email in localStorage
       localStorage.setItem('mindbridge_user_email', userEmail);
       localStorage.removeItem('mindbridge_user_id'); // Remove old random user ID
-      
+
       setIsAuthenticated(true);
       setUserProfile({ email: userEmail });
       onAuthChange(userEmail);
-      
+
       console.log('🆔 User authenticated with email:', userEmail);
-      
     } catch (err) {
       console.error('❌ Authentication error:', err);
       setError('Authentication failed. Please try again.');
@@ -58,12 +57,12 @@ const EmailAuth = ({ onAuthChange }) => {
     // Clear authentication data
     localStorage.removeItem('mindbridge_user_email');
     localStorage.removeItem('mindbridge_user_id');
-    
+
     setIsAuthenticated(false);
     setUserProfile(null);
     setEmail('');
     onAuthChange(null);
-    
+
     console.log('👋 User signed out');
   };
 
@@ -75,7 +74,7 @@ const EmailAuth = ({ onAuthChange }) => {
             <User className="auth-icon" />
             <h3>Welcome Back!</h3>
           </div>
-          
+
           <div className="user-info">
             <div className="user-email">
               <Mail className="email-icon" />
@@ -83,12 +82,8 @@ const EmailAuth = ({ onAuthChange }) => {
             </div>
             <p className="user-status">✅ Authenticated</p>
           </div>
-          
-          <button 
-            onClick={handleSignOut}
-            className="sign-out-button"
-            disabled={loading}
-          >
+
+          <button onClick={handleSignOut} className="sign-out-button" disabled={loading}>
             <LogOut className="button-icon" />
             Sign Out
           </button>
@@ -105,7 +100,7 @@ const EmailAuth = ({ onAuthChange }) => {
           <h3>Sign In to MindBridge</h3>
           <p>Enter your email to access your mental health analytics</p>
         </div>
-        
+
         <form onSubmit={handleSignIn} className="auth-form">
           <div className="input-group">
             <label htmlFor="email">Email Address</label>
@@ -115,25 +110,17 @@ const EmailAuth = ({ onAuthChange }) => {
                 type="email"
                 id="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={e => setEmail(e.target.value)}
                 placeholder="Enter your email address"
                 required
                 disabled={loading}
               />
             </div>
           </div>
-          
-          {error && (
-            <div className="error-message">
-              ❌ {error}
-            </div>
-          )}
-          
-          <button 
-            type="submit" 
-            className="sign-in-button"
-            disabled={loading || !email}
-          >
+
+          {error && <div className="error-message">❌ {error}</div>}
+
+          <button type="submit" className="sign-in-button" disabled={loading || !email}>
             {loading ? (
               <>
                 <div className="loading-spinner"></div>
@@ -147,7 +134,7 @@ const EmailAuth = ({ onAuthChange }) => {
             )}
           </button>
         </form>
-        
+
         <div className="auth-info">
           <p>🔒 Your email will be used as your unique identifier</p>
           <p>📊 All your mental health data will be linked to this email</p>
@@ -158,4 +145,4 @@ const EmailAuth = ({ onAuthChange }) => {
   );
 };
 
-export default EmailAuth; 
+export default EmailAuth;

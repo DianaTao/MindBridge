@@ -6,7 +6,7 @@ const Simple = () => {
     apiConnected: false,
     modelsLoaded: false,
     lastCheck: null,
-    error: null
+    error: null,
   });
   const [isChecking, setIsChecking] = useState(false);
 
@@ -19,14 +19,14 @@ const Simple = () => {
         apiConnected: true,
         modelsLoaded: testResult.models_loaded || false,
         lastCheck: new Date().toISOString(),
-        error: null
+        error: null,
       });
     } catch (error) {
       setSystemStatus({
         apiConnected: false,
         modelsLoaded: false,
         lastCheck: new Date().toISOString(),
-        error: error.message
+        error: error.message,
       });
     } finally {
       setIsChecking(false);
@@ -53,11 +53,11 @@ const Simple = () => {
               <h4 className="font-medium text-gray-900">API Connection</h4>
               <p className="text-sm text-gray-500">Backend service connectivity</p>
             </div>
-            <div className={`w-4 h-4 rounded-full ${systemStatus.apiConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+            <div
+              className={`w-4 h-4 rounded-full ${systemStatus.apiConnected ? 'bg-green-500' : 'bg-red-500'}`}
+            />
           </div>
-          {systemStatus.error && (
-            <p className="text-xs text-red-600 mt-2">{systemStatus.error}</p>
-          )}
+          {systemStatus.error && <p className="text-xs text-red-600 mt-2">{systemStatus.error}</p>}
         </div>
 
         {/* Models Status */}
@@ -67,7 +67,9 @@ const Simple = () => {
               <h4 className="font-medium text-gray-900">AI Models</h4>
               <p className="text-sm text-gray-500">Emotion detection models</p>
             </div>
-            <div className={`w-4 h-4 rounded-full ${systemStatus.modelsLoaded ? 'bg-green-500' : 'bg-yellow-500'}`} />
+            <div
+              className={`w-4 h-4 rounded-full ${systemStatus.modelsLoaded ? 'bg-green-500' : 'bg-yellow-500'}`}
+            />
           </div>
           <p className="text-xs text-gray-600 mt-2">
             {systemStatus.modelsLoaded ? 'Models loaded and ready' : 'Models loading...'}
@@ -107,7 +109,9 @@ const Simple = () => {
           </div>
           <div className="flex justify-between">
             <span className="text-gray-600">Screen Resolution:</span>
-            <span className="font-medium">{window.screen.width}x{window.screen.height}</span>
+            <span className="font-medium">
+              {window.screen.width}x{window.screen.height}
+            </span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-600">Local Time:</span>

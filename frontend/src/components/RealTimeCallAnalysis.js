@@ -3,20 +3,20 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Progress } from './ui/progress';
-import { 
-  Mic, 
-  MicOff, 
-  Phone, 
-  PhoneOff, 
-  Activity, 
-  TrendingUp, 
+import {
+  Mic,
+  // MicOff,
+  // Phone,
+  // PhoneOff,
+  Activity,
+  TrendingUp,
   TrendingDown,
   Clock,
   Users,
   MessageSquare,
   AlertCircle,
   CheckCircle,
-  XCircle
+  XCircle,
 } from 'lucide-react';
 import { sendRealTimeAudioChunk } from '../services/ApiService';
 
@@ -36,14 +36,14 @@ const RealTimeCallAnalysis = ({ userEmail }) => {
     keyPhrases: [],
     issues: [],
     quality: 0,
-    participants: 0
+    participants: 0,
   });
   const [liveMetrics, setLiveMetrics] = useState({
     currentEmotion: 'neutral',
     emotionConfidence: 0,
     sentimentTrend: 'stable',
     callIntensity: 0,
-    speakingRate: 0
+    speakingRate: 0,
   });
   const [analysisHistory, setAnalysisHistory] = useState([]);
   const [error, setError] = useState(null);
@@ -56,108 +56,114 @@ const RealTimeCallAnalysis = ({ userEmail }) => {
 
   // Use email as user identifier
   const userId = userEmail || 'anonymous';
-  
+
   console.log('🔍 RealTimeCallAnalysis using user email:', userId);
 
   // Process audio chunk for real-time analysis
-  const processAudioChunk = useCallback(async (audioBlob) => {
-    try {
-      console.log('🎤 Processing audio chunk for real-time analysis...');
-      setIsAnalyzing(true);
-      
-      // Check audio quality
-      if (audioBlob.size < 1000) {
-        console.warn('🎤 Audio chunk too small, skipping analysis');
-        return;
+  const processAudioChunk = useCallback(
+    async audioBlob => {
+      try {
+        console.log('🎤 Processing audio chunk for real-time analysis...');
+        setIsAnalyzing(true);
+
+        // Check audio quality
+        if (audioBlob.size < 1000) {
+          console.warn('🎤 Audio chunk too small, skipping analysis');
+          return;
+        }
+
+        const analysis = await sendRealTimeAudioChunk(audioBlob);
+        console.log('🎤 AWS Real-time Analysis Result:', analysis);
+
+        if (!analysis) {
+          console.warn('🎤 No analysis result received from AWS');
+          return;
+        }
+
+        // Validate analysis results
+        const isValidAnalysis =
+          analysis.emotion && analysis.sentiment && analysis.emotion_confidence > 0;
+
+        if (!isValidAnalysis) {
+          console.warn('🎤 Invalid analysis results received');
+          return;
+        }
+
+        // Update live metrics and call data with backend response
+        setLiveMetrics({
+          currentEmotion: analysis.emotion,
+          emotionConfidence: analysis.emotion_confidence,
+          sentimentTrend: analysis.sentiment_trend,
+          callIntensity: analysis.call_intensity,
+          speakingRate: analysis.speaking_rate,
+        });
+
+        setCallData(prev => ({
+          ...prev,
+          sentiment: analysis.sentiment,
+          sentimentScore: analysis.sentiment_score,
+          callType: analysis.call_type || prev.callType,
+        }));
+
+        setAnalysisHistory(prev => [
+          ...prev.slice(-9),
+          {
+            timestamp: new Date().toISOString(),
+            emotion: analysis.emotion,
+            sentiment: analysis.sentiment,
+            intensity: analysis.call_intensity,
+            keyPhrases: analysis.key_phrases || [],
+            confidence: analysis.emotion_confidence,
+          },
+        ]);
+
+        console.log('🎤 Real-time analysis completed successfully');
+      } catch (err) {
+        console.error('❌ Live analysis failed:', err);
+        // Don't show error to user for real-time analysis, just log it
+      } finally {
+        setIsAnalyzing(false);
       }
-      
-      const analysis = await sendRealTimeAudioChunk(audioBlob);
-      console.log('🎤 AWS Real-time Analysis Result:', analysis);
-      
-      if (!analysis) {
-        console.warn('🎤 No analysis result received from AWS');
-        return;
-      }
-      
-      // Validate analysis results
-      const isValidAnalysis = analysis.emotion && analysis.sentiment && analysis.emotion_confidence > 0;
-      
-      if (!isValidAnalysis) {
-        console.warn('🎤 Invalid analysis results received');
-        return;
-      }
-      
-      // Update live metrics and call data with backend response
-      setLiveMetrics({
-        currentEmotion: analysis.emotion,
-        emotionConfidence: analysis.emotion_confidence,
-        sentimentTrend: analysis.sentiment_trend,
-        callIntensity: analysis.call_intensity,
-        speakingRate: analysis.speaking_rate
-      });
-      
-      setCallData(prev => ({
-        ...prev,
-        sentiment: analysis.sentiment,
-        sentimentScore: analysis.sentiment_score,
-        callType: analysis.call_type || prev.callType
-      }));
-      
-      setAnalysisHistory(prev => [...prev.slice(-9), {
-        timestamp: new Date().toISOString(),
-        emotion: analysis.emotion,
-        sentiment: analysis.sentiment,
-        intensity: analysis.call_intensity,
-        keyPhrases: analysis.key_phrases || [],
-        confidence: analysis.emotion_confidence
-      }]);
-      
-      console.log('🎤 Real-time analysis completed successfully');
-      
-    } catch (err) {
-      console.error('❌ Live analysis failed:', err);
-      // Don't show error to user for real-time analysis, just log it
-    } finally {
-      setIsAnalyzing(false);
-    }
-  }, [isRecording]);
+    },
+    [isRecording]
+  );
 
   // Initialize audio recording
   const initializeRecording = useCallback(async () => {
     try {
       console.log('🎤 Initializing high-quality audio recording...');
-      
-      const stream = await navigator.mediaDevices.getUserMedia({ 
+
+      const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
           sampleRate: 44100,
           channelCount: 1,
-          volume: 1.0
-        } 
+          volume: 1.0,
+        },
       });
-      
+
       console.log('🎤 Audio stream obtained:', stream.getAudioTracks()[0].getSettings());
-      
+
       // Try different MIME types in order of preference
       const mimeTypes = [
         'audio/webm;codecs=opus',
         'audio/webm',
         'audio/mp4',
         'audio/ogg;codecs=opus',
-        'audio/wav'
+        'audio/wav',
       ];
-      
+
       let mediaRecorder = null;
       let selectedMimeType = null;
-      
+
       for (const mimeType of mimeTypes) {
         if (MediaRecorder.isTypeSupported(mimeType)) {
           try {
-            mediaRecorder = new MediaRecorder(stream, { 
+            mediaRecorder = new MediaRecorder(stream, {
               mimeType,
-              audioBitsPerSecond: 128000 // Higher quality
+              audioBitsPerSecond: 128000, // Higher quality
             });
             selectedMimeType = mimeType;
             console.log(`✅ Using MIME type: ${mimeType} with 128kbps`);
@@ -168,53 +174,62 @@ const RealTimeCallAnalysis = ({ userEmail }) => {
           }
         }
       }
-      
+
       // Fallback: create MediaRecorder without specifying MIME type
       if (!mediaRecorder) {
         console.log('🔄 Using default MediaRecorder without MIME type specification');
         mediaRecorder = new MediaRecorder(stream);
         selectedMimeType = mediaRecorder.mimeType || 'audio/webm';
       }
-      
+
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
-      
-      mediaRecorder.ondataavailable = (event) => {
+
+      mediaRecorder.ondataavailable = event => {
         if (event.data.size > 0) {
           console.log('🎤 Audio chunk received, size:', event.data.size, 'bytes');
           audioChunksRef.current.push(event.data);
-          
+
           // Process the audio chunk for real-time analysis
           if (isRecording) {
             processAudioChunk(event.data);
           }
         }
       };
-      
+
       mediaRecorder.onstop = () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: selectedMimeType });
-        console.log('🎤 Recording stopped, total blob size:', audioBlob.size, 'MIME type:', selectedMimeType);
+        console.log(
+          '🎤 Recording stopped, total blob size:',
+          audioBlob.size,
+          'MIME type:',
+          selectedMimeType
+        );
       };
-      
-      mediaRecorder.onerror = (event) => {
+
+      mediaRecorder.onerror = event => {
         console.error('🎤 MediaRecorder error:', event.error);
         setError(`Recording error: ${event.error.name}`);
       };
-      
+
       mediaRecorder.onstart = () => {
         console.log('✅ MediaRecorder started successfully');
         setError(null);
       };
-      
+
       return true;
     } catch (error) {
       console.error('Failed to initialize recording:', error);
       if (error.name === 'NotAllowedError') {
-        setError('Microphone access denied. Please allow microphone permissions and refresh the page.');
+        setError(
+          'Microphone access denied. Please allow microphone permissions and refresh the page.'
+        );
       } else if (error.name === 'NotFoundError') {
         setError('No microphone found. Please connect a microphone and try again.');
       } else if (error.name === 'NotSupportedError') {
-        setError('MediaRecorder not supported in this browser. Please use a modern browser like Chrome, Firefox, or Safari.');
+        setError(
+          'MediaRecorder not supported in this browser. Please use a modern browser like Chrome, Firefox, or Safari.'
+        );
       } else {
         setError(`Recording initialization failed: ${error.message}`);
       }
@@ -227,69 +242,72 @@ const RealTimeCallAnalysis = ({ userEmail }) => {
     try {
       console.log('🎤 Performing real-time audio analysis...');
       console.log('🎤 Available audio chunks:', audioChunksRef.current.length);
-      
+
       // Get the latest audio chunk for analysis
       if (audioChunksRef.current.length === 0) {
         console.log('🎤 No audio chunks available for analysis - waiting for audio data');
         return;
       }
-      
+
       // Use the most recent audio chunk
       const latestAudioChunk = audioChunksRef.current[audioChunksRef.current.length - 1];
       console.log('🎤 Analyzing audio chunk, size:', latestAudioChunk.size, 'bytes');
-      
+
       // Check if audio chunk is large enough for meaningful analysis
       if (latestAudioChunk.size < 1000) {
         console.log('🎤 Audio chunk too small, waiting for more audio data');
         return;
       }
-      
+
       // Send to AWS for real analysis
       const analysis = await sendRealTimeAudioChunk(latestAudioChunk);
       console.log('🎤 AWS Audio Analysis Result:', analysis);
-      
+
       if (!analysis) {
         console.warn('🎤 No analysis result received from AWS');
         return;
       }
-      
+
       // Validate analysis results
-      const isValidAnalysis = analysis.emotion && analysis.sentiment && analysis.emotion_confidence > 0;
-      
+      const isValidAnalysis =
+        analysis.emotion && analysis.sentiment && analysis.emotion_confidence > 0;
+
       if (!isValidAnalysis) {
         console.warn('🎤 Invalid analysis results received');
         return;
       }
-      
+
       // Update live metrics with real AWS data
       setLiveMetrics({
         currentEmotion: analysis.emotion || 'neutral',
         emotionConfidence: analysis.emotion_confidence || 0,
         sentimentTrend: analysis.sentiment_trend || 'stable',
         callIntensity: analysis.call_intensity || 0,
-        speakingRate: analysis.speaking_rate || 0
+        speakingRate: analysis.speaking_rate || 0,
       });
-      
+
       // Update call data with real sentiment analysis
       setCallData(prev => ({
         ...prev,
         sentiment: analysis.sentiment || 'neutral',
         sentimentScore: analysis.sentiment_score || 0,
-        callType: analysis.call_type || prev.callType
+        callType: analysis.call_type || prev.callType,
       }));
-      
+
       // Add real analysis to history
-      setAnalysisHistory(prev => [...prev.slice(-9), {
-        timestamp: new Date().toISOString(),
-        emotion: analysis.emotion || 'neutral',
-        sentiment: analysis.sentiment || 'neutral',
-        intensity: analysis.call_intensity || 0,
-        keyPhrases: analysis.key_phrases || [],
-        confidence: analysis.emotion_confidence
-      }]);
-      
+      setAnalysisHistory(prev => [
+        ...prev.slice(-9),
+        {
+          timestamp: new Date().toISOString(),
+          emotion: analysis.emotion || 'neutral',
+          sentiment: analysis.sentiment || 'neutral',
+          intensity: analysis.call_intensity || 0,
+          keyPhrases: analysis.key_phrases || [],
+          confidence: analysis.emotion_confidence,
+        },
+      ]);
+
       console.log('🎤 Real-time analysis completed successfully');
-      
     } catch (error) {
       console.error('❌ Real-time analysis failed:', error);
       // Don't show error to user for real-time analysis, just log it
@@ -303,29 +321,42 @@ const RealTimeCallAnalysis = ({ userEmail }) => {
       // Default to general if no analysis data yet
       setCallData(prev => ({
         ...prev,
-        callType: 'general'
+        callType: 'general',
       }));
       return;
     }
-    
+
     // Analyze recent history to determine call type
     const recentAnalyses = analysisHistory.slice(-3); // Last 3 analyses
     const keyPhrases = recentAnalyses
       .filter(entry => entry.keyPhrases && entry.keyPhrases.length > 0)
       .flatMap(entry => entry.keyPhrases)
-      .join(' ').toLowerCase();
-    
+      .join(' ')
+      .toLowerCase();
+
     // Determine call type based on key phrases and sentiment patterns
     let callType = 'general';
-    
-    if (keyPhrases.includes('customer') || keyPhrases.includes('support') || keyPhrases.includes('help')) {
+
+    if (
+      keyPhrases.includes('customer') ||
+      keyPhrases.includes('support') ||
+      keyPhrases.includes('help')
+    ) {
       callType = 'customer_support';
-    } else if (keyPhrases.includes('sale') || keyPhrases.includes('buy') || keyPhrases.includes('purchase')) {
+    } else if (
+      keyPhrases.includes('sale') ||
+      keyPhrases.includes('buy') ||
+      keyPhrases.includes('purchase')
+    ) {
       callType = 'sales';
-    } else if (keyPhrases.includes('technical') || keyPhrases.includes('bug') || keyPhrases.includes('error')) {
+    } else if (
+      keyPhrases.includes('technical') ||
+      keyPhrases.includes('bug') ||
+      keyPhrases.includes('error')
+    ) {
       callType = 'technical';
     }
-    
+
     // Also consider sentiment patterns
     const negativeCount = recentAnalyses.filter(entry => entry.sentiment === 'negative').length;
     if (negativeCount > recentAnalyses.length * 0.6) {
@@ -334,12 +365,12 @@ const RealTimeCallAnalysis = ({ userEmail }) => {
         callType = 'customer_support';
       }
     }
-    
+
     setCallData(prev => ({
       ...prev,
-      callType: callType
+      callType: callType,
     }));
-    
+
     console.log('🎤 Detected call type:', callType, 'based on analysis history');
   }, [analysisHistory]);
 
@@ -358,32 +389,32 @@ const RealTimeCallAnalysis = ({ userEmail }) => {
         emotions: [],
         keyPhrases: [],
         issues: [],
-        participants: 1
+        participants: 1,
       });
       setLiveMetrics({
         callIntensity: 0,
         sentimentTrend: 'neutral',
-        emotionStability: 0
+        emotionStability: 0,
       });
-      
+
       // Initialize recording first
       console.log('🎤 Initializing recording...');
       await initializeRecording();
-      
+
       // Start the MediaRecorder
       if (mediaRecorderRef.current) {
         mediaRecorderRef.current.start(5000); // Capture chunks every 5 seconds
         console.log('🎤 MediaRecorder started with 5-second chunks');
       }
-      
+
       // Start duration timer
       durationIntervalRef.current = setInterval(() => {
         setCallData(prev => ({
           ...prev,
-          duration: prev.duration + 1
+          duration: prev.duration + 1,
         }));
       }, 1000);
-      
+
       // Start periodic analysis after a delay to allow first audio chunk
       setTimeout(() => {
         analysisIntervalRef.current = setInterval(() => {
@@ -391,14 +422,13 @@ const RealTimeCallAnalysis = ({ userEmail }) => {
         }, 6000); // Analyze every 6 seconds (after chunk is captured)
         console.log('🎤 Analysis interval started (6-second intervals)');
       }, 3000); // Wait 3 seconds for first audio chunk
-      
+
       // Initial call type detection
       setTimeout(() => {
         detectCallType();
       }, 5000);
-      
+
       console.log('🎤 Call analysis started successfully');
-      
     } catch (error) {
       console.error('❌ Error starting call analysis:', error);
       setError(`Failed to start call analysis: ${error.message}`);
@@ -408,13 +438,13 @@ const RealTimeCallAnalysis = ({ userEmail }) => {
   }, [initializeRecording, performRealTimeAnalysis, detectCallType]);
 
   // Calculate standard deviation
-  const calculateStandardDeviation = (values) => {
+  const calculateStandardDeviation = values => {
     if (values.length < 2) return 0;
-    
+
     const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
     const squaredDiffs = values.map(val => Math.pow(val - mean, 2));
     const variance = squaredDiffs.reduce((sum, val) => sum + val, 0) / values.length;
-    
+
     return Math.sqrt(variance);
   };
 
@@ -426,15 +456,18 @@ const RealTimeCallAnalysis = ({ userEmail }) => {
     }
 
     console.log('🎤 Performing final call analysis...');
-    
+
     // Calculate sentiment scores from history
     const sentimentScores = analysisHistory
       .map(entry => {
         // Map sentiment to numeric score
         switch (entry.sentiment) {
-          case 'positive': return 0.8;
-          case 'negative': return 0.2;
-          default: return 0.5;
+          case 'positive':
+            return 0.8;
+          case 'negative':
+            return 0.2;
+          default:
+            return 0.5;
         }
       })
       .filter(score => score !== null);
@@ -447,54 +480,59 @@ const RealTimeCallAnalysis = ({ userEmail }) => {
     });
 
     const totalEntries = analysisHistory.length;
-    const emotions = Object.entries(emotionCounts).map(([emotion, count]) => ({
-      emotion,
-      score: Math.round((count / totalEntries) * 100)
-    })).sort((a, b) => b.score - a.score);
-    
+    const emotions = Object.entries(emotionCounts)
+      .map(([emotion, count]) => ({
+        emotion,
+        score: Math.round((count / totalEntries) * 100),
+      }))
+      .sort((a, b) => b.score - a.score);
+
     // Calculate overall quality based on sentiment trend and consistency
-    const avgSentiment = sentimentScores.length > 0 ? 
-      sentimentScores.reduce((sum, score) => sum + score, 0) / sentimentScores.length : 0.5;
-    
-    const sentimentConsistency = sentimentScores.length > 1 ? 
-      1 - (calculateStandardDeviation(sentimentScores) || 0) : 0.8;
-    
+    const avgSentiment =
+      sentimentScores.length > 0
+        ? sentimentScores.reduce((sum, score) => sum + score, 0) / sentimentScores.length
+        : 0.5;
+
+    const sentimentConsistency =
+      sentimentScores.length > 1 ? 1 - (calculateStandardDeviation(sentimentScores) || 0) : 0.8;
+
     const quality = Math.round((avgSentiment * 0.6 + sentimentConsistency * 0.4) * 100);
-    
+
     // Extract key phrases from recent analyses (if available)
     const recentAnalyses = analysisHistory.slice(-5); // Last 5 analyses
     const phrases = recentAnalyses
       .filter(entry => entry.keyPhrases && entry.keyPhrases.length > 0)
       .flatMap(entry => entry.keyPhrases)
       .slice(0, 5); // Top 5 phrases
-    
+
     // Identify potential issues based on negative sentiment patterns
     const issues = [];
     const negativeCount = sentimentScores.filter(score => score < 0.3).length;
     const totalCount = sentimentScores.length;
-    
+
     if (negativeCount > totalCount * 0.3) {
       issues.push('frequent negative sentiment');
     }
-    
-    if (callData.duration > 300) { // 5 minutes
+
+    if (callData.duration > 300) {
+      // 5 minutes
       issues.push('long call duration');
     }
-    
+
     if (liveMetrics.callIntensity > 80) {
       issues.push('high call intensity');
     }
-    
+
     // Estimate participants based on call type and duration
     const participants = callData.callType === 'customer_support' ? 2 : 1;
-    
+
     setCallData(prev => ({
       ...prev,
       quality: Math.max(quality, 20), // Minimum 20% quality
       emotions: emotions.length > 0 ? emotions : [{ emotion: 'neutral', score: 50 }],
       keyPhrases: phrases,
       issues: issues,
-      participants: participants
+      participants: participants,
     }));
   }, [analysisHistory, callData.duration, callData.callType, liveMetrics.callIntensity]);
 
@@ -504,56 +542,63 @@ const RealTimeCallAnalysis = ({ userEmail }) => {
       mediaRecorderRef.current.stop();
       mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
     }
-    
+
     if (analysisIntervalRef.current) {
       clearInterval(analysisIntervalRef.current);
     }
-    
+
     if (durationIntervalRef.current) {
       clearInterval(durationIntervalRef.current);
     }
-    
+
     setIsRecording(false);
     setIsAnalyzing(false);
-    
+
     // Final analysis
     performFinalAnalysis();
   }, [isRecording, performFinalAnalysis]);
 
   // Format duration
-  const formatDuration = (seconds) => {
+  const formatDuration = seconds => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   // Get call type icon
-  const getCallTypeIcon = (type) => {
+  const getCallTypeIcon = type => {
     switch (type) {
-      case 'customer_support': return <Users className="w-4 h-4" />;
-      case 'sales': return <TrendingUp className="w-4 h-4" />;
-      case 'technical': return <AlertCircle className="w-4 h-4" />;
-      default: return <MessageSquare className="w-4 h-4" />;
+      case 'customer_support':
+        return <Users className="w-4 h-4" />;
+      case 'sales':
+        return <TrendingUp className="w-4 h-4" />;
+      case 'technical':
+        return <AlertCircle className="w-4 h-4" />;
+      default:
+        return <MessageSquare className="w-4 h-4" />;
     }
   };
 
   // Get sentiment color
-  const getSentimentColor = (sentiment) => {
+  const getSentimentColor = sentiment => {
     switch (sentiment) {
-      case 'positive': return 'bg-green-100 text-green-800';
-      case 'negative': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'positive':
+        return 'bg-green-100 text-green-800';
+      case 'negative':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
   // Get emotion color
-  const getEmotionColor = (emotion) => {
+  const getEmotionColor = emotion => {
     const colors = {
       happy: 'bg-yellow-100 text-yellow-800',
       excited: 'bg-orange-100 text-orange-800',
       calm: 'bg-blue-100 text-blue-800',
       frustrated: 'bg-red-100 text-red-800',
-      neutral: 'bg-gray-100 text-gray-800'
+      neutral: 'bg-gray-100 text-gray-800',
     };
     return colors[emotion] || colors.neutral;
   };
@@ -582,7 +627,7 @@ const RealTimeCallAnalysis = ({ userEmail }) => {
             <p className="text-gray-600">Live recording and sentiment analysis during calls</p>
           </div>
         </div>
-        
+
         <Card className="border-red-200 bg-red-50">
           <CardContent className="pt-6">
             <div className="flex items-center space-x-2 text-red-700">
@@ -590,7 +635,7 @@ const RealTimeCallAnalysis = ({ userEmail }) => {
               <div>
                 <p className="font-semibold">Browser Not Supported</p>
                 <p className="text-sm">
-                  Your browser doesn't support the required APIs for real-time audio recording. 
+                  Your browser doesn't support the required APIs for real-time audio recording.
                   Please use a modern browser like Chrome, Firefox, or Safari.
                 </p>
                 {!isMediaRecorderSupported && (
@@ -647,21 +692,21 @@ const RealTimeCallAnalysis = ({ userEmail }) => {
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
                 <Clock className="w-5 h-5 text-gray-500" />
-                <span className="text-lg font-mono">
-                  {formatDuration(callData.duration)}
-                </span>
+                <span className="text-lg font-mono">{formatDuration(callData.duration)}</span>
               </div>
               <div className="flex items-center space-x-2">
-                <Activity className={`w-4 h-4 ${isRecording ? 'text-red-500 animate-pulse' : 'text-gray-400'}`} />
+                <Activity
+                  className={`w-4 h-4 ${isRecording ? 'text-red-500 animate-pulse' : 'text-gray-400'}`}
+                />
                 <span className={isRecording ? 'text-red-500' : 'text-gray-500'}>
                   {isRecording ? 'Recording' : 'Idle'}
                 </span>
               </div>
             </div>
-            
+
             <div className="flex space-x-3">
               {!isRecording ? (
-                <Button 
+                <Button
                   onClick={startCallAnalysis}
                   className="bg-green-600 hover:bg-green-700"
                   disabled={isAnalyzing}
@@ -670,12 +715,8 @@ const RealTimeCallAnalysis = ({ userEmail }) => {
                   Start Call Analysis
                 </Button>
               ) : (
-                <Button 
-                  onClick={stopCallAnalysis}
-                  variant="destructive"
-                  disabled={!isRecording}
-                >
-                  <PhoneOff className="w-4 h-4 mr-2" />
+                <Button onClick={stopCallAnalysis} variant="destructive" disabled={!isRecording}>
+                  <MicOff className="w-4 h-4 mr-2" />
                   End Call
                 </Button>
               )}
@@ -694,30 +735,32 @@ const RealTimeCallAnalysis = ({ userEmail }) => {
               <div>
                 <p className="text-sm font-medium text-blue-800">Real AWS Analysis Active</p>
                 <p className="text-xs text-blue-600">
-                  Using AWS Transcribe & Comprehend for live sentiment analysis. 
-                  Speak clearly for best accuracy.
+                  Using AWS Transcribe & Comprehend for live sentiment analysis. Speak clearly for
+                  best accuracy.
                 </p>
               </div>
             </div>
           </div>
         </div>
-        
+
         {/* Fallback Analysis Note - shown when AWS is not available */}
-        {analysisHistory.length > 0 && analysisHistory[analysisHistory.length - 1]?.debug_info?.analysis_method === 'fallback_frontend' && (
-          <div className="col-span-full mb-4">
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-              <div className="flex items-center">
-                <AlertCircle className="w-5 h-5 text-orange-600 mr-2" />
-                <div>
-                  <p className="text-sm font-medium text-orange-800">Fallback Analysis Mode</p>
-                  <p className="text-xs text-orange-600">
-                    AWS services temporarily unavailable. Using local analysis for demonstration.
-                  </p>
+        {analysisHistory.length > 0 &&
+          analysisHistory[analysisHistory.length - 1]?.debug_info?.analysis_method ===
+            'fallback_frontend' && (
+            <div className="col-span-full mb-4">
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                <div className="flex items-center">
+                  <AlertCircle className="w-5 h-5 text-orange-600 mr-2" />
+                  <div>
+                    <p className="text-sm font-medium text-orange-800">Fallback Analysis Mode</p>
+                    <p className="text-xs text-orange-600">
+                      AWS services temporarily unavailable. Using local analysis for demonstration.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
@@ -803,14 +846,13 @@ const RealTimeCallAnalysis = ({ userEmail }) => {
         <CardContent>
           <div className="space-y-3">
             {analysisHistory.map((entry, index) => (
-              <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div
+                key={index}
+                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+              >
                 <div className="flex items-center space-x-3">
-                  <Badge className={getEmotionColor(entry.emotion)}>
-                    {entry.emotion}
-                  </Badge>
-                  <Badge className={getSentimentColor(entry.sentiment)}>
-                    {entry.sentiment}
-                  </Badge>
+                  <Badge className={getEmotionColor(entry.emotion)}>{entry.emotion}</Badge>
+                  <Badge className={getSentimentColor(entry.sentiment)}>{entry.sentiment}</Badge>
                   <span className="text-sm text-gray-600">
                     Intensity: {Math.round(entry.intensity)}%
                   </span>
@@ -846,10 +888,12 @@ const RealTimeCallAnalysis = ({ userEmail }) => {
                 </div>
                 <div className="mt-3">
                   <p className="text-sm text-gray-600">Participants: {callData.participants}</p>
-                  <p className="text-sm text-gray-600">Duration: {formatDuration(callData.duration)}</p>
+                  <p className="text-sm text-gray-600">
+                    Duration: {formatDuration(callData.duration)}
+                  </p>
                 </div>
               </div>
-              
+
               <div>
                 <h4 className="font-semibold mb-3">Key Emotions</h4>
                 <div className="space-y-2">
@@ -862,7 +906,7 @@ const RealTimeCallAnalysis = ({ userEmail }) => {
                 </div>
               </div>
             </div>
-            
+
             {callData.keyPhrases.length > 0 && (
               <div className="mt-6">
                 <h4 className="font-semibold mb-3">Key Phrases</h4>
@@ -875,7 +919,7 @@ const RealTimeCallAnalysis = ({ userEmail }) => {
                 </div>
               </div>
             )}
-            
+
             {callData.issues.length > 0 && (
               <div className="mt-6">
                 <h4 className="font-semibold mb-3">Issues Identified</h4>
@@ -896,4 +940,4 @@ const RealTimeCallAnalysis = ({ userEmail }) => {
   );
 };
 
-export default RealTimeCallAnalysis; 
+export default RealTimeCallAnalysis;
