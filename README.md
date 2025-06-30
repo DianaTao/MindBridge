@@ -227,6 +227,3 @@ bash deploy-frontend-backend.sh
 - [Real-time Call Analysis](docs/REALTIME_CALL_ANALYSIS.md)
 - [Mental Health Check-in](docs/MENTAL_HEALTH_CHECKIN.md)
 - [Emotion Analytics](docs/EMOTION_ANALYTICS.md)
-
-## License
-This project is licensed under the MIT License - see the LICENSE file for details 
