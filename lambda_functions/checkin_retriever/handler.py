@@ -172,7 +172,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         except Exception as e:
             logger.error(f"❌ DynamoDB query error: {str(e)}")
             logger.info("🔄 Falling back to demo data...")
-        
+            
         # Use real data if available, otherwise return empty list
         if real_checkins:
             checkins = real_checkins
@@ -209,15 +209,15 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         analytics_summary['has_real_data'] = len(real_checkins) > 0
         
         # Prepare final response
-        result = {
-            'checkins': checkins,
-            'analytics_summary': analytics_summary,
-            'total_count': len(checkins),
-            'user_guidance': {
-                'has_data': True,
+            result = {
+                'checkins': checkins,
+                'analytics_summary': analytics_summary,
+                'total_count': len(checkins),
+                'user_guidance': {
+                    'has_data': True,
                 'message': f"{'Real' if data_source == 'real_database' else 'Demo'} analytics for {len(checkins)} check-ins with {'AI insights' if analytics_summary.get('llm_generated', False) else 'fallback analysis'}"
+                }
             }
-        }
         
         logger.info("✅ SUCCESS - returning comprehensive result with LLM analytics")
         return create_success_response(result)
@@ -270,7 +270,7 @@ def generate_llm_analytics(checkins: List[Dict[str, Any]], user_id: str) -> Dict
             llm_output = response_body['content'][0]['text']
             
             logger.info("✅ LLM analytics generated successfully")
-            
+        
             # Parse and structure the analytics
             return parse_analytics_response(llm_output, analysis_context)
             
@@ -422,25 +422,25 @@ def determine_mood_trend(scores: List[float]) -> str:
 
 def generate_fallback_analytics(checkins: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Generate fallback analytics without LLM"""
-    if not checkins:
-        return {
-            'total_checkins': 0,
-            'average_score': 0,
-            'mood_trend': 'no_data',
-            'most_common_emotion': 'none',
+        if not checkins:
+            return {
+                'total_checkins': 0,
+                'average_score': 0,
+                'mood_trend': 'no_data',
+                'most_common_emotion': 'none',
             'recommendations': ['Complete your first check-in'],
-            'period_covered': 'no_data',
+                'period_covered': 'no_data',
             'llm_generated': False
-        }
-    
-    total_checkins = len(checkins)
+            }
+        
+        total_checkins = len(checkins)
     scores = [c.get('overall_score', 0) for c in checkins]
-    average_score = sum(scores) / len(scores) if scores else 0
-    
+        average_score = sum(scores) / len(scores) if scores else 0
+        
     # Find most common emotion
-    emotions = []
-    for checkin in checkins:
-        emotion_data = checkin.get('emotion_analysis', {})
+        emotions = []
+        for checkin in checkins:
+            emotion_data = checkin.get('emotion_analysis', {})
         if emotion_data.get('primary_emotion'):
             emotions.append(emotion_data['primary_emotion'])
     
@@ -448,12 +448,12 @@ def generate_fallback_analytics(checkins: List[Dict[str, Any]]) -> Dict[str, Any
     for emotion in emotions:
         emotion_counts[emotion] = emotion_counts.get(emotion, 0) + 1
     most_common_emotion = max(emotion_counts.items(), key=lambda x: x[1])[0] if emotion_counts else 'neutral'
-    
-    return {
-        'total_checkins': total_checkins,
-        'average_score': round(average_score, 1),
+        
+        return {
+            'total_checkins': total_checkins,
+            'average_score': round(average_score, 1),
         'mood_trend': determine_mood_trend(scores),
-        'most_common_emotion': most_common_emotion,
+            'most_common_emotion': most_common_emotion,
         'recommendations': [
             f'You have completed {total_checkins} check-ins with an average score of {average_score:.1f}',
             'Your most common emotion is ' + most_common_emotion,
