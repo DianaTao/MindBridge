@@ -5,20 +5,47 @@ import os
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Dict, List, Any
+import urllib.parse
+import ssl
+import certifi
 
 # Configure logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
+# Environment variables
+CHECKINS_TABLE = os.environ.get('CHECKINS_TABLE', 'mindbridge-checkins-dev')
+BEDROCK_MODEL_ID = os.environ.get('BEDROCK_MODEL_ID', 'anthropic.claude-3-sonnet-20240229-v1:0')
+
 # Initialize AWS clients
 try:
-    dynamodb = boto3.resource('dynamodb')
-    logger.info("✅ AWS clients initialized successfully")
+    # Initialize DynamoDB client
+    dynamodb = boto3.client('dynamodb')
+    logger.info("✅ AWS DynamoDB client initialized successfully")
 except Exception as e:
-    logger.error(f"❌ Failed to initialize AWS clients: {str(e)}")
+    logger.error(f"❌ Failed to initialize DynamoDB: {str(e)}")
+    dynamodb = None
 
-# Environment variables
-CHECKINS_TABLE = os.environ.get('CHECKINS_TABLE', 'mindbridge-checkins')
+try:
+    # Initialize Bedrock for LLM analytics with SSL configuration
+    # Create a custom SSL context
+    ssl_context = ssl.create_default_context(cafile=certifi.where())
+    ssl_context.check_hostname = False
+    ssl_context.verify_mode = ssl.CERT_NONE
+    
+    # Initialize Bedrock client with custom config
+    bedrock = boto3.client(
+        'bedrock-runtime',
+        config=boto3.session.Config(
+            retries={'max_attempts': 3},
+            connect_timeout=30,
+            read_timeout=60
+        )
+    )
+    logger.info("✅ AWS Bedrock client initialized successfully with SSL configuration")
+except Exception as e:
+    logger.error(f"❌ Failed to initialize Bedrock: {str(e)}")
+    bedrock = None
 
 def convert_decimals(obj):
     """
@@ -33,410 +60,406 @@ def convert_decimals(obj):
     else:
         return obj
 
-def get_demo_data() -> List[Dict[str, Any]]:
+def convert_dynamodb_item(item):
     """
-    Get real demo data from existing users (anonymized) to show what analytics look like
+    Convert DynamoDB client response format to regular dict
     """
-    try:
-        table = dynamodb.Table(CHECKINS_TABLE)
-        
-        # Get some real data from existing users for demo purposes
-        response = table.scan(Limit=5)
-        items = response.get('Items', [])
-        
-        if items:
-            # Anonymize the data by removing user-specific info
-            demo_data = []
-            for item in items:
-                demo_item = {
-                    'checkin_id': f"demo_{item.get('checkin_id', 'unknown')}",
-                    'session_id': 'demo_session',
-                    'duration': item.get('duration', 120),
-                    'emotion_analysis': item.get('emotion_analysis', {}),
-                    'self_assessment': item.get('self_assessment', {}),
-                    'overall_score': item.get('overall_score', 75.0),
-                    'timestamp': item.get('timestamp', datetime.utcnow().isoformat()),
-                    'llm_report': item.get('llm_report', {}),
-                    'is_demo': True  # Mark as demo data
-                }
-                demo_data.append(demo_item)
-            
-            logger.info(f"✅ Retrieved {len(demo_data)} demo records from real data")
-            return demo_data
+    result = {}
+    for key, value in item.items():
+        if 'S' in value:
+            result[key] = value['S']
+        elif 'N' in value:
+            result[key] = float(value['N'])
+        elif 'BOOL' in value:
+            result[key] = value['BOOL']
+        elif 'M' in value:
+            result[key] = convert_dynamodb_item(value['M'])
+        elif 'L' in value:
+            result[key] = [convert_dynamodb_item({'item': v})['item'] for v in value['L']]
         else:
-            logger.warning("No real data available for demo")
-            return []
-            
-    except Exception as e:
-        logger.error(f"❌ Error getting demo data: {str(e)}")
-        return []
+            result[key] = str(value)
+    return result
+
+def create_success_response(data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Create a standardized success response with CORS headers
+    """
+    return {
+        'statusCode': 200,
+        'headers': {
+            'Access-Control-Allow-Origin': 'https://d8zwp3hg28702.cloudfront.net',
+            'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+            'Access-Control-Allow-Credentials': 'true',
+            'Content-Type': 'application/json'
+        },
+        'body': json.dumps(data, default=str)
+    }
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
-    Main Lambda handler that uses real data instead of hard-coded samples
+    Comprehensive check-in retriever with real data only
     """
-    try:
-        logger.info("=" * 60)
-        logger.info("📊 CHECK-IN DATA RETRIEVER WITH REAL DATA")
-        logger.info("=" * 60)
-        
-        # Handle CORS preflight requests
-        if event.get('httpMethod') == 'OPTIONS':
-            return {
-                'statusCode': 200,
-                'headers': {
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Headers': 'Content-Type',
-                    'Access-Control-Allow-Methods': 'GET, OPTIONS'
-                },
-                'body': ''
-            }
-        
-        # Parse query parameters
-        query_params = event.get('queryStringParameters', {}) or {}
-        user_id = query_params.get('user_id', 'anonymous')
-        days = int(query_params.get('days', 30))
-        limit = int(query_params.get('limit', 50))
-        
-        logger.info(f"🔍 Requesting data for user: {user_id}")
-        
-        # Retrieve check-in data for the specific user
-        checkins = retrieve_checkins(user_id, days, limit)
-        
-        # If user has no data, provide guidance and demo data
-        if not checkins:
-            logger.info(f"📝 No check-ins found for user {user_id}, providing guidance and demo data")
-            
-            # Get real demo data from existing users
-            demo_checkins = get_demo_data()
-            
-            # Create guidance response
-            result = {
-                'checkins': convert_decimals(demo_checkins),
-                'analytics_summary': {
-                    'total_checkins': len(demo_checkins),
-                    'average_score': 75.0 if demo_checkins else 0,
-                    'mood_trend': 'demo_data',
-                    'most_common_emotion': 'happy' if demo_checkins else 'none',
-                    'recommendations': [
-                        "Complete your first mental health check-in to see your real analytics",
-                        "Use the Mental Health Check-in feature to capture your emotions",
-                        "Regular check-ins help track your emotional patterns over time",
-                        "Your data will be stored securely and analyzed for personalized insights"
-                    ],
-                    'period_covered': 'Demo data from real users',
-                    'is_demo': True
-                },
-                'total_count': len(demo_checkins),
-                'query_params': {
-                    'user_id': user_id,
-                    'days': days,
-                    'limit': limit
-                },
-                'user_guidance': {
-                    'has_data': False,
-                    'message': 'Complete your first mental health check-in to see your personalized analytics',
-                    'next_steps': [
-                        'Go to the Mental Health Check-in tab',
-                        'Allow camera access for emotion analysis',
-                        'Complete the self-assessment questions',
-                        'Submit your check-in to see real analytics'
-                    ]
-                }
-            }
-        else:
-            # User has real data
-            checkins = convert_decimals(checkins)
-            analytics_summary = generate_analytics_summary(checkins)
-            
-            result = {
-                'checkins': checkins,
-                'analytics_summary': analytics_summary,
-                'total_count': len(checkins),
-                'query_params': {
-                    'user_id': user_id,
-                    'days': days,
-                    'limit': limit
-                },
-                'user_guidance': {
-                    'has_data': True,
-                    'message': f'You have {len(checkins)} check-ins with personalized analytics',
-                    'next_steps': [
-                        'Continue regular check-ins to track your patterns',
-                        'Review your emotional trends over time',
-                        'Follow personalized recommendations for mental wellness'
-                    ]
-                }
-            }
-        
-        logger.info(f"✅ SUCCESS: Retrieved {len(checkins)} check-ins")
-        logger.info("=" * 60)
+    # Handle OPTIONS request for CORS
+    if event.get('httpMethod') == 'OPTIONS':
         return {
             'statusCode': 200,
             'headers': {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Headers': 'Content-Type',
-                'Access-Control-Allow-Methods': 'GET, OPTIONS'
+                'Access-Control-Allow-Origin': 'https://d8zwp3hg28702.cloudfront.net',
+                'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+                'Access-Control-Allow-Credentials': 'true',
+                'Content-Type': 'application/json'
             },
-            'body': json.dumps(result)
-        }
-        
-    except Exception as e:
-        logger.error(f"❌ ERROR in check-in retrieval: {str(e)}")
-        logger.error(f"Exception type: {type(e).__name__}")
-        import traceback
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        return {
-            'statusCode': 500,
-            'headers': {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Headers': 'Content-Type',
-                'Access-Control-Allow-Methods': 'GET, OPTIONS'
-            },
-            'body': json.dumps({
-                'error': f"Check-in retrieval failed: {str(e)}",
-                'timestamp': datetime.utcnow().isoformat()
-            })
+            'body': json.dumps({})
         }
 
-def retrieve_checkins(user_id: str, days: int, limit: int) -> List[Dict[str, Any]]:
-    """
-    Retrieve check-in data from DynamoDB
-    """
     try:
-        table = dynamodb.Table(CHECKINS_TABLE)
+        logger.info("🚀 COMPREHENSIVE CHECKIN RETRIEVER WITH LLM ANALYTICS")
         
-        # Calculate date range
-        end_date = datetime.utcnow()
-        start_date = end_date - timedelta(days=days)
+        # Extract user ID from query parameters
+        query_params = event.get('queryStringParameters') or {}
+        user_id = query_params.get('user_id')
         
-        logger.info(f"🔍 Querying for user_id: {user_id}")
-        
-        # Query directly using partition key (user_id) and sort key (timestamp)
-        response = table.query(
-            KeyConditionExpression='user_id = :user_id AND #ts BETWEEN :start_date AND :end_date',
-            ExpressionAttributeNames={
-                '#ts': 'timestamp'
-            },
-            ExpressionAttributeValues={
-                ':user_id': user_id,
-                ':start_date': start_date.isoformat(),
-                ':end_date': end_date.isoformat()
-            },
-            ScanIndexForward=False,  # Most recent first
-            Limit=limit
-        )
-        
-        checkins = response.get('Items', [])
-        logger.info(f"✅ Direct query returned {len(checkins)} check-ins")
-        
-        # If no results from direct query, try scan as fallback
-        if not checkins:
-            logger.info("No results from direct query, trying scan fallback...")
-            checkins = scan_checkins_with_filter(user_id, start_date, end_date, limit)
-        
-        logger.info(f"✅ Retrieved {len(checkins)} check-ins for user {user_id}")
-        return checkins
-        
-    except Exception as e:
-        logger.error(f"❌ Error retrieving check-ins: {str(e)}")
-        return []
-
-def scan_checkins_with_filter(user_id: str, start_date: datetime, end_date: datetime, limit: int) -> List[Dict[str, Any]]:
-    """
-    Fallback method to scan check-ins with filter
-    """
-    try:
-        table = dynamodb.Table(CHECKINS_TABLE)
-        
-        response = table.scan(
-            FilterExpression='user_id = :user_id AND #ts BETWEEN :start_date AND :end_date',
-            ExpressionAttributeNames={
-                '#ts': 'timestamp'
-            },
-            ExpressionAttributeValues={
-                ':user_id': user_id,
-                ':start_date': start_date.isoformat(),
-                ':end_date': end_date.isoformat()
-            },
-            Limit=limit
-        )
-        
-        return response.get('Items', [])
-        
-    except Exception as e:
-        logger.error(f"❌ Error in scan fallback: {str(e)}")
-        return []
-
-def generate_analytics_summary(checkins: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """
-    Generate analytics summary from real check-in data with LLM recommendations
-    """
-    try:
-        if not checkins:
+        if not user_id:
             return {
-                'total_checkins': 0,
-                'average_score': 0,
-                'mood_trend': 'no_data',
-                'most_common_emotion': 'none',
-                'recommendations': ['Start with your first mental health check-in'],
-                'period_covered': 'no_data',
-                'llm_insights': []
+                'statusCode': 400,
+                'headers': {
+                    'Access-Control-Allow-Origin': 'https://d8zwp3hg28702.cloudfront.net',
+                    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+                    'Access-Control-Allow-Credentials': 'true',
+                    'Content-Type': 'application/json'
+                },
+                'body': json.dumps({'error': 'user_id parameter required'})
             }
         
-        # Calculate basic statistics from real data
-        total_checkins = len(checkins)
-        scores = [checkin.get('overall_score', 50) for checkin in checkins]
-        average_score = sum(scores) / len(scores) if scores else 0
+        # URL decode the user_id in case it's encoded
+        try:
+            from urllib.parse import unquote
+            user_id = unquote(user_id)
+        except:
+            pass
         
-        # Analyze emotions from real data
-        emotions = []
-        for checkin in checkins:
-            emotion_data = checkin.get('emotion_analysis', {})
-            if emotion_data.get('dominant_emotion'):
-                emotions.append(emotion_data['dominant_emotion'])
+        logger.info(f"🔍 User: {user_id}")
+        logger.info(f"📊 Table: {CHECKINS_TABLE}")
         
-        most_common_emotion = max(set(emotions), key=emotions.count) if emotions else 'neutral'
+        # First attempt: Try to retrieve real data from DynamoDB
+        real_checkins = []
+        try:
+            logger.info("🔍 Attempting to retrieve real data from DynamoDB...")
+            
+            response = dynamodb.query(
+                TableName=CHECKINS_TABLE,
+                KeyConditionExpression='user_id = :user_id',
+                ExpressionAttributeValues={
+                    ':user_id': {'S': user_id}
+                },
+                ScanIndexForward=False,  # Most recent first
+                Limit=50
+            )
+            
+            raw_items = response.get('Items', [])
+            for item in raw_items:
+                converted_item = convert_dynamodb_item(item)
+                real_checkins.append(converted_item)
+            
+            if real_checkins:
+                logger.info(f"✅ Retrieved {len(real_checkins)} real check-ins from DynamoDB")
+            else:
+                logger.info("ℹ️ No real check-ins found in DynamoDB")
+                
+        except Exception as e:
+            logger.error(f"❌ DynamoDB query error: {str(e)}")
+            logger.info("🔄 Falling back to demo data...")
         
-        # Analyze mood trend from real data
-        mood_trend = analyze_mood_trend(checkins)
-        
-        # Extract LLM-generated insights and recommendations
-        llm_insights = []
-        llm_recommendations = []
-        latest_llm_report = None
-        for checkin in sorted(checkins, key=lambda x: x.get('timestamp', ''), reverse=True):
-            llm_report = checkin.get('llm_report', {})
-            if llm_report and llm_report.get('llm_generated'):
-                latest_llm_report = llm_report
-                if llm_report.get('key_insights'):
-                    llm_insights.extend(llm_report['key_insights'])
-                if llm_report.get('recommendations'):
-                    llm_recommendations.extend(llm_report['recommendations'])
-                break  # Use the most recent LLM report only for recommendations
-        
-        # Use latest LLM recommendations if available, otherwise use basic ones
-        if latest_llm_report and latest_llm_report.get('recommendations'):
-            recommendations = latest_llm_report['recommendations']
-        elif llm_recommendations:
-            recommendations = list(set(llm_recommendations))[:5]
+        # Use real data if available, otherwise return empty list
+        if real_checkins:
+            checkins = real_checkins
+            data_source = "real_database"
+            logger.info(f"📊 Using {len(checkins)} real check-ins for analysis")
         else:
-            recommendations = generate_recommendations(checkins, average_score, mood_trend)
+            checkins = []
+            data_source = "real_database"
+            logger.info("📊 No check-ins found for user")
+            return create_success_response({
+                'checkins': [],
+                'analytics_summary': {
+                    'total_checkins': 0,
+                    'average_score': 0,
+                    'mood_trend': 'no_data',
+                    'most_common_emotion': 'none',
+                    'data_source': 'real_database',
+                    'has_real_data': False,
+                    'period_covered': 'No data available'
+                },
+                'total_count': 0,
+                'user_guidance': {
+                    'has_data': False,
+                    'message': 'No check-in data available yet. Complete your first check-in to see analytics.'
+                }
+            })
         
-        # Calculate period covered from real data
-        if checkins:
-            first_date = min(checkin.get('timestamp', '') for checkin in checkins)
-            last_date = max(checkin.get('timestamp', '') for checkin in checkins)
-            period_covered = f"{first_date[:10]} to {last_date[:10]}"
-        else:
-            period_covered = 'no_data'
+        # Always attempt LLM analytics first (for both real and demo data)
+        logger.info("🤖 Attempting LLM-powered analytics...")
+        analytics_summary = generate_llm_analytics(checkins, user_id)
         
-        return {
-            'total_checkins': total_checkins,
-            'average_score': round(average_score, 1),
-            'mood_trend': mood_trend,
-            'most_common_emotion': most_common_emotion,
-            'recommendations': recommendations,
-            'period_covered': period_covered,
-            'score_range': {
-                'min': min(scores) if scores else 0,
-                'max': max(scores) if scores else 0
-            },
-            'llm_insights': list(set(llm_insights))[:3] if llm_insights else [],
-            'latest_llm_report': latest_llm_report,
-            'has_llm_data': bool(latest_llm_report)
+        # Add metadata about data source and LLM usage
+        analytics_summary['data_source'] = data_source
+        analytics_summary['has_real_data'] = len(real_checkins) > 0
+        
+        # Prepare final response
+        result = {
+            'checkins': checkins,
+            'analytics_summary': analytics_summary,
+            'total_count': len(checkins),
+            'user_guidance': {
+                'has_data': True,
+                'message': f"{'Real' if data_source == 'real_database' else 'Demo'} analytics for {len(checkins)} check-ins with {'AI insights' if analytics_summary.get('llm_generated', False) else 'fallback analysis'}"
+            }
         }
+        
+        logger.info("✅ SUCCESS - returning comprehensive result with LLM analytics")
+        return create_success_response(result)
+        
     except Exception as e:
-        logger.error(f"❌ Error generating analytics summary: {str(e)}")
+        logger.error(f"❌ Error in retrieval: {str(e)}")
+        return {
+            'statusCode': 500,
+            'headers': {'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': 'Internal server error'})
+        }
+
+def generate_llm_analytics(checkins: List[Dict[str, Any]], user_id: str) -> Dict[str, Any]:
+    """
+    Generate comprehensive analytics using Bedrock LLM with enhanced SSL handling
+    """
+    try:
+        if not bedrock:
+            logger.info("🔄 Bedrock client not available, using fallback analytics")
+            return generate_fallback_analytics(checkins)
+        
+        # Prepare data for LLM analysis
+        analysis_context = prepare_analytics_context(checkins, user_id)
+        
+        # Create prompt for comprehensive analytics
+        prompt = create_analytics_prompt(analysis_context)
+        
+        logger.info("🤖 Attempting LLM analytics with Bedrock...")
+        
+        # Call Bedrock LLM with enhanced error handling
+        try:
+            response = bedrock.invoke_model(
+                modelId=BEDROCK_MODEL_ID,
+                body=json.dumps({
+                    'anthropic_version': 'bedrock-2023-05-31',
+                    'messages': [
+                        {
+                            'role': 'user',
+                            'content': prompt
+                        }
+                    ],
+                    'max_tokens': 2000,
+                    'temperature': 0.7,
+                    'top_p': 0.9
+                })
+            )
+            
+            # Parse LLM response
+            response_body = json.loads(response['body'].read())
+            llm_output = response_body['content'][0]['text']
+            
+            logger.info("✅ LLM analytics generated successfully")
+            
+            # Parse and structure the analytics
+            return parse_analytics_response(llm_output, analysis_context)
+            
+        except Exception as llm_error:
+            logger.error(f"❌ LLM call failed: {str(llm_error)}")
+            
+            # Check if it's an SSL issue
+            if 'SSL' in str(llm_error) or 'certificate' in str(llm_error).lower():
+                logger.warning("🔒 SSL certificate issue detected, using fallback analytics")
+                fallback_analytics = generate_fallback_analytics(checkins)
+                fallback_analytics['ssl_issue'] = True
+                fallback_analytics['llm_error'] = str(llm_error)
+                return fallback_analytics
+            else:
+                # Other LLM errors
+                logger.error(f"❌ Non-SSL LLM error: {str(llm_error)}")
+                return generate_fallback_analytics(checkins)
+        
+    except Exception as e:
+        logger.error(f"❌ General LLM analytics error: {str(e)}")
+        return generate_fallback_analytics(checkins)
+
+def prepare_analytics_context(checkins: List[Dict[str, Any]], user_id: str) -> Dict[str, Any]:
+    """
+    Prepare comprehensive context for LLM analytics
+    """
+    total_checkins = len(checkins)
+    
+    # Calculate trends
+    scores = [c.get('overall_score', 0) for c in checkins]
+    average_score = sum(scores) / len(scores) if scores else 0
+    
+    # Emotion analysis
+    emotions = []
+    for checkin in checkins:
+        emotion_data = checkin.get('emotion_analysis', {})
+        if emotion_data.get('primary_emotion'):
+            emotions.append(emotion_data['primary_emotion'])
+    
+    emotion_counts = {}
+    for emotion in emotions:
+        emotion_counts[emotion] = emotion_counts.get(emotion, 0) + 1
+    
+    # Time-based analysis
+    timestamps = [c.get('timestamp', '') for c in checkins if c.get('timestamp')]
+    
+    return {
+        'user_id': user_id,
+        'total_checkins': total_checkins,
+        'average_score': average_score,
+        'score_trend': scores,
+        'emotion_distribution': emotion_counts,
+        'checkins_data': checkins,
+        'time_period': f"Last {total_checkins} check-ins",
+        'latest_checkin': checkins[0] if checkins else None
+    }
+
+def create_analytics_prompt(context: Dict[str, Any]) -> str:
+    """
+    Create comprehensive analytics prompt for LLM
+    """
+    prompt = f"""You are an expert mental health data analyst and AI counselor. Analyze the following comprehensive mental health check-in data and provide detailed insights and recommendations.
+
+USER ANALYTICS DATA:
+- User ID: {context['user_id']}
+- Total Check-ins: {context['total_checkins']}
+- Average Wellbeing Score: {context['average_score']:.1f}/100
+- Score Progression: {context['score_trend']}
+- Emotion Distribution: {json.dumps(context['emotion_distribution'], indent=2)}
+
+DETAILED CHECK-IN DATA:
+{json.dumps(context['checkins_data'], indent=2)}
+
+ANALYSIS REQUIREMENTS:
+Please provide a comprehensive JSON response with the following structure:
+
+1. overall_trend_analysis: Detailed analysis of score trends and patterns
+2. emotional_insights: Deep insights into emotional patterns and changes
+3. personalized_recommendations: 5-7 specific, actionable recommendations
+4. risk_assessment: Assessment of any concerning patterns (low/medium/high)
+5. positive_indicators: Highlights of positive mental health indicators
+6. areas_for_improvement: Specific areas that need attention
+7. professional_guidance: Whether professional help is recommended
+8. trend_prediction: Predicted trend based on current data
+9. comparative_analysis: How this user compares to healthy baselines
+10. llm_confidence: Your confidence level in this analysis (high/medium/low)
+
+Focus on:
+- Evidence-based insights from the data patterns
+- Actionable and specific recommendations
+- Supportive and encouraging tone
+- Professional mental health best practices
+- Data-driven trend analysis
+
+Respond ONLY with valid JSON format."""
+    
+    return prompt
+
+def parse_analytics_response(llm_output: str, context: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Parse LLM analytics response and structure it
+    """
+    try:
+        # Try to extract JSON
+        import re
+        json_match = re.search(r'\{.*\}', llm_output, re.DOTALL)
+        if json_match:
+            llm_analytics = json.loads(json_match.group())
+        else:
+            raise ValueError("No JSON found in LLM response")
+        
+        # Structure the final analytics
+        return {
+            'total_checkins': context['total_checkins'],
+            'average_score': round(context['average_score'], 1),
+            'mood_trend': determine_mood_trend(context['score_trend']),
+            'most_common_emotion': max(context['emotion_distribution'].items(), key=lambda x: x[1])[0] if context['emotion_distribution'] else 'neutral',
+            'recommendations': llm_analytics.get('personalized_recommendations', ['Continue regular check-ins']),
+            'period_covered': context['time_period'],
+            'llm_insights': llm_analytics.get('overall_trend_analysis', 'Comprehensive analysis completed'),
+            'emotional_insights': llm_analytics.get('emotional_insights', 'Emotional patterns analyzed'),
+            'risk_assessment': llm_analytics.get('risk_assessment', 'low'),
+            'positive_indicators': llm_analytics.get('positive_indicators', []),
+            'areas_for_improvement': llm_analytics.get('areas_for_improvement', []),
+            'professional_guidance': llm_analytics.get('professional_guidance', False),
+            'trend_prediction': llm_analytics.get('trend_prediction', 'stable'),
+            'llm_confidence': llm_analytics.get('llm_confidence', 'high'),
+            'llm_generated': True
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Error parsing LLM analytics: {str(e)}")
+        return generate_fallback_analytics(context['checkins_data'])
+
+def determine_mood_trend(scores: List[float]) -> str:
+    """Determine mood trend from score progression"""
+    if len(scores) < 2:
+        return 'insufficient_data'
+    
+    recent_avg = sum(scores[:2]) / 2 if len(scores) >= 2 else scores[0]
+    older_avg = sum(scores[2:]) / len(scores[2:]) if len(scores) > 2 else scores[-1]
+    
+    if recent_avg > older_avg + 5:
+        return 'improving'
+    elif recent_avg < older_avg - 5:
+        return 'declining'
+    else:
+        return 'stable'
+
+def generate_fallback_analytics(checkins: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Generate fallback analytics without LLM"""
+    if not checkins:
         return {
             'total_checkins': 0,
             'average_score': 0,
-            'mood_trend': 'error',
-            'most_common_emotion': 'unknown',
-            'recommendations': ['Unable to generate recommendations'],
-            'period_covered': 'error',
-            'llm_insights': [],
-            'has_llm_data': False
+            'mood_trend': 'no_data',
+            'most_common_emotion': 'none',
+            'recommendations': ['Complete your first check-in'],
+            'period_covered': 'no_data',
+            'llm_generated': False
         }
-
-def analyze_mood_trend(checkins: List[Dict[str, Any]]) -> str:
-    """
-    Analyze mood trend over time from real data
-    """
-    try:
-        if len(checkins) < 2:
-            return 'insufficient_data'
-        
-        # Sort by timestamp
-        sorted_checkins = sorted(checkins, key=lambda x: x.get('timestamp', ''))
-        
-        # Get scores for trend analysis
-        scores = [checkin.get('overall_score', 50) for checkin in sorted_checkins]
-        
-        # Simple trend analysis
-        if len(scores) >= 3:
-            recent_scores = scores[-3:]
-            earlier_scores = scores[:3]
-            
-            recent_avg = sum(recent_scores) / len(recent_scores)
-            earlier_avg = sum(earlier_scores) / len(earlier_scores)
-            
-            if recent_avg > earlier_avg + 5:
-                return 'improving'
-            elif recent_avg < earlier_avg - 5:
-                return 'declining'
-            else:
-                return 'stable'
-        else:
-            return 'insufficient_data'
-            
-    except Exception as e:
-        logger.error(f"❌ Error analyzing mood trend: {str(e)}")
-        return 'error'
-
-def generate_recommendations(checkins: List[Dict[str, Any]], average_score: float, mood_trend: str) -> List[str]:
-    """
-    Generate personalized recommendations based on real data
-    """
-    recommendations = []
     
-    try:
-        # Base recommendations on real average score
-        if average_score < 40:
-            recommendations.extend([
-                "Consider speaking with a mental health professional",
-                "Practice daily self-care routines",
-                "Focus on getting adequate sleep and nutrition"
-            ])
-        elif average_score < 60:
-            recommendations.extend([
-                "Continue monitoring your mental health regularly",
-                "Try mindfulness or meditation exercises",
-                "Maintain social connections with friends and family"
-            ])
-        else:
-            recommendations.extend([
-                "Great job maintaining positive mental health!",
-                "Continue your current wellness practices",
-                "Consider helping others with their mental health journey"
-            ])
-        
-        # Add trend-based recommendations from real data
-        if mood_trend == 'declining':
-            recommendations.append("Your mood trend shows some decline - consider reaching out for support")
-        elif mood_trend == 'improving':
-            recommendations.append("Excellent progress! Your mood is trending upward")
-        
-        # Add frequency-based recommendations from real data
-        if len(checkins) < 3:
-            recommendations.append("Try to check in more regularly to better track your patterns")
-        elif len(checkins) >= 10:
-            recommendations.append("Excellent consistency! Keep up your regular check-ins")
-        
-        return recommendations[:5]  # Limit to 5 recommendations
-        
-    except Exception as e:
-        logger.error(f"❌ Error generating recommendations: {str(e)}")
-        return ["Continue monitoring your mental health regularly"] 
+    total_checkins = len(checkins)
+    scores = [c.get('overall_score', 0) for c in checkins]
+    average_score = sum(scores) / len(scores) if scores else 0
+    
+    # Find most common emotion
+    emotions = []
+    for checkin in checkins:
+        emotion_data = checkin.get('emotion_analysis', {})
+        if emotion_data.get('primary_emotion'):
+            emotions.append(emotion_data['primary_emotion'])
+    
+    emotion_counts = {}
+    for emotion in emotions:
+        emotion_counts[emotion] = emotion_counts.get(emotion, 0) + 1
+    most_common_emotion = max(emotion_counts.items(), key=lambda x: x[1])[0] if emotion_counts else 'neutral'
+    
+    return {
+        'total_checkins': total_checkins,
+        'average_score': round(average_score, 1),
+        'mood_trend': determine_mood_trend(scores),
+        'most_common_emotion': most_common_emotion,
+        'recommendations': [
+            f'You have completed {total_checkins} check-ins with an average score of {average_score:.1f}',
+            'Your most common emotion is ' + most_common_emotion,
+            'Continue regular mental health monitoring',
+            'Consider professional guidance if scores decline'
+        ],
+        'period_covered': f'Last {total_checkins} check-ins',
+        'llm_generated': False
+    } 

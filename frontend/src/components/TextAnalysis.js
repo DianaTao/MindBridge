@@ -304,7 +304,19 @@ const TextAnalysis = ({ onEmotionDetected, onProcessingChange, userEmail, classN
             <div className="text-xs text-gray-500 text-center pt-2">
               Analyzed at {new Date(lastResult.timestamp || Date.now()).toLocaleTimeString()}
               {lastResult.debug_info?.analysis_method === 'bedrock_llm' && (
-                <span className="block text-blue-600">Using AWS Bedrock LLM</span>
+                <span className="block text-blue-600 font-semibold">🤖 Using AWS Bedrock LLM</span>
+              )}
+              {lastResult.debug_info?.analysis_method === 'fallback_nlp' && (
+                <span className="block text-orange-600 font-semibold">⚠️ Using Fallback NLP (LLM Unavailable)</span>
+              )}
+              {lastResult.debug_info?.model_used && (
+                <span className="block text-gray-600">Model: {lastResult.debug_info.model_used}</span>
+              )}
+              {lastResult.debug_info?.text_length && (
+                <span className="block text-gray-600">Text Length: {lastResult.debug_info.text_length} chars</span>
+              )}
+              {lastResult.debug_info?.environment && (
+                <span className="block text-gray-600">Environment: {lastResult.debug_info.environment}</span>
               )}
             </div>
           </div>

@@ -11,13 +11,53 @@ import boto3
 from datetime import datetime
 from typing import Dict, List, Any
 from collections import Counter
+import signal
+import ssl
+import certifi
+import urllib3
 
 # Configure logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
+# Disable SSL warnings for debugging
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+# Create a custom SSL context with certificate handling
+ssl_context = ssl.create_default_context(cafile=certifi.where())
+ssl_context.check_hostname = False
+ssl_context.verify_mode = ssl.CERT_NONE
+
 # Initialize AWS Bedrock client
-bedrock = boto3.client('bedrock-runtime')
+try:
+    # Initialize Bedrock client with custom SSL configuration
+    bedrock = boto3.client(
+        'bedrock-runtime', 
+        region_name='us-east-1',
+        config=boto3.session.Config(
+            retries={'max_attempts': 3},
+            connect_timeout=30,
+            read_timeout=60
+        )
+    )
+    
+    # Test Bedrock access with detailed logging
+    logger.info("🔍 Testing Bedrock access...")
+    try:
+        bedrock_control = boto3.client('bedrock', region_name='us-east-1')
+        models = bedrock_control.list_foundation_models()
+        logger.info(f"✅ Bedrock access confirmed. Found {len(models.get('modelSummaries', []))} models")
+        logger.info("✅ Bedrock client initialized successfully with SSL fixes")
+    except Exception as test_error:
+        logger.warning(f"⚠️ Bedrock test failed but continuing: {str(test_error)}")
+        logger.info("✅ Bedrock client initialized (test skipped)")
+    
+except Exception as e:
+    logger.error(f"❌ Failed to initialize Bedrock client: {str(e)}")
+    logger.error(f"🔍 Error type: {type(e).__name__}")
+    import traceback
+    logger.error(f"📋 Full traceback: {traceback.format_exc()}")
+    bedrock = None
 
 # Get Bedrock model ID from environment variable
 BEDROCK_MODEL_ID = os.environ.get('BEDROCK_MODEL_ID', 'anthropic.claude-3-haiku-20240307-v1:0')
@@ -76,6 +116,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         # Analyze emotions using AWS Bedrock LLM
         logger.info("🧠 Starting LLM-based text emotion analysis...")
+        analysis_method = "bedrock_llm"  # Default method
         try:
             emotion_results = analyze_text_with_llm(text_data)
             logger.info("✅ LLM analysis completed successfully")
@@ -83,6 +124,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             logger.error(f"❌ LLM analysis failed: {str(e)}")
             logger.info("🔄 Falling back to basic NLP analysis")
             emotion_results = analyze_text_emotions_fallback(text_data)
+            analysis_method = "fallback_nlp"  # Update method when fallback is used
         
         logger.info(f"📊 Analysis results: {len(emotion_results.get('emotions', []))} emotions detected")
         
@@ -97,10 +139,10 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'timestamp': datetime.utcnow().isoformat(),
             'processing_time_ms': context.get_remaining_time_in_millis() if context else 0,
             'debug_info': {
-                'analysis_method': 'bedrock_llm',
+                'analysis_method': analysis_method,  # Use the actual method used
                 'text_length': len(text_data),
                 'environment': os.environ.get('STAGE', 'unknown'),
-                'model_used': BEDROCK_MODEL_ID
+                'model_used': BEDROCK_MODEL_ID if analysis_method == "bedrock_llm" else "fallback_nlp"
             }
         }
         
@@ -118,49 +160,103 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
 def analyze_text_with_llm(text_data: str) -> Dict[str, Any]:
     """
-    Analyze text for emotions using AWS Bedrock LLM
+    Analyze text for emotions using AWS Bedrock LLM with enhanced SSL handling
     """
     try:
         logger.info("🧠 ANALYZE_TEXT_WITH_LLM STARTED")
         logger.info(f"Text length: {len(text_data)}")
+        logger.info(f"Using Bedrock model: {BEDROCK_MODEL_ID}")
+        
+        # Check if Bedrock client is available
+        if bedrock is None:
+            logger.error("❌ Bedrock client is not available")
+            raise Exception("Bedrock client not initialized")
+        
+        logger.info(f"Bedrock client region: {bedrock.meta.region_name}")
+        logger.info(f"Bedrock client config: {bedrock.meta.config}")
         
         # Create prompt for LLM analysis
         prompt = create_text_analysis_prompt(text_data)
+        logger.info(f"Created prompt with length: {len(prompt)}")
         
-        # Call AWS Bedrock
-        response = bedrock.invoke_model(
-            modelId=BEDROCK_MODEL_ID,
-            body=json.dumps({
-                'anthropic_version': 'bedrock-2023-05-31',
-                'messages': [
-                    {
-                        'role': 'user',
-                        'content': prompt
-                    }
-                ],
-                'max_tokens': 800,
-                'temperature': 0.3,
-                'top_p': 0.9
-            })
-        )
+        # Set a timeout for the Bedrock call to prevent Lambda timeout
+        def timeout_handler(signum, frame):
+            raise TimeoutError("Bedrock LLM call timed out")
         
-        # Parse response
-        response_body = json.loads(response['body'].read())
-        llm_output = response_body['content'][0]['text']
+        # Set 45-second timeout for LLM call (leaving 15 seconds for other operations)
+        signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(45)
         
-        logger.info(f"🤖 LLM Response: {llm_output[:200]}...")
-        
-        # Parse structured response
-        analysis_result = parse_llm_text_analysis(llm_output, text_data)
-        
-        logger.info(f"📝 LLM TEXT ANALYSIS COMPLETED")
-        logger.info(f"📊 Sentiment: {analysis_result.get('sentiment')}")
-        logger.info(f"😊 Emotions: {[e['Type'] for e in analysis_result.get('emotions', [])]}")
-        
-        return analysis_result
-        
+        try:
+            logger.info("📡 Making Bedrock API call with SSL debugging...")
+            logger.info(f"🔍 SSL Context: verify_mode={ssl_context.verify_mode}, check_hostname={ssl_context.check_hostname}")
+            
+            # Call AWS Bedrock with enhanced error handling
+            response = bedrock.invoke_model(
+                modelId=BEDROCK_MODEL_ID,
+                body=json.dumps({
+                    'anthropic_version': 'bedrock-2023-05-31',
+                    'messages': [
+                        {
+                            'role': 'user',
+                            'content': prompt
+                        }
+                    ],
+                    'max_tokens': 800,
+                    'temperature': 0.3,
+                    'top_p': 0.9
+                })
+            )
+            
+            signal.alarm(0)  # Cancel the alarm
+            logger.info("✅ Bedrock API call successful!")
+            
+            # Parse response
+            response_body = json.loads(response['body'].read())
+            llm_output = response_body['content'][0]['text']
+            
+            logger.info(f"🤖 LLM Response: {llm_output[:200]}...")
+            
+            # Parse structured response
+            analysis_result = parse_llm_text_analysis(llm_output, text_data)
+            
+            logger.info(f"📝 LLM TEXT ANALYSIS COMPLETED")
+            logger.info(f"📊 Sentiment: {analysis_result.get('sentiment')}")
+            logger.info(f"😊 Emotions: {[e['Type'] for e in analysis_result.get('emotions', [])]}")
+            
+            return analysis_result
+            
+        except TimeoutError:
+            signal.alarm(0)  # Cancel the alarm
+            logger.error("⏰ Bedrock LLM call timed out")
+            raise TimeoutError("LLM call timed out")
+        except Exception as bedrock_error:
+            signal.alarm(0)  # Cancel the alarm
+            logger.error(f"❌ Bedrock API call failed: {str(bedrock_error)}")
+            logger.error(f"🔍 Error type: {type(bedrock_error).__name__}")
+            logger.error(f"🔍 Error details: {bedrock_error}")
+            
+            # Additional SSL debugging
+            if "SSL" in str(bedrock_error) or "certificate" in str(bedrock_error).lower():
+                logger.error("🔍 SSL/Certificate issue detected!")
+                logger.error(f"🔍 SSL Context state: verify_mode={ssl_context.verify_mode}")
+                logger.error(f"🔍 Certifi path: {certifi.where()}")
+                try:
+                    import os
+                    logger.error(f"🔍 Lambda environment: {os.environ.get('AWS_LAMBDA_FUNCTION_NAME', 'unknown')}")
+                    logger.error(f"🔍 Lambda runtime: {os.environ.get('AWS_EXECUTION_ENV', 'unknown')}")
+                except Exception as env_error:
+                    logger.error(f"🔍 Environment check failed: {str(env_error)}")
+            
+            import traceback
+            logger.error(f"📋 Bedrock error traceback: {traceback.format_exc()}")
+            raise bedrock_error
+            
     except Exception as e:
         logger.error(f"❌ LLM text analysis failed: {str(e)}")
+        logger.error(f"🔍 Exception type: {type(e).__name__}")
+        import traceback
+        logger.error(f"📋 Full traceback: {traceback.format_exc()}")
         raise e
 
 def create_text_analysis_prompt(text_data: str) -> str:

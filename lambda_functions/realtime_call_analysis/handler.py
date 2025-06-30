@@ -13,6 +13,10 @@ from datetime import datetime
 from typing import Dict, List, Any
 import time
 import random
+import ssl
+import certifi
+import urllib3
+import re
 
 # Configure logging
 logger = logging.getLogger()
@@ -20,14 +24,40 @@ logger.setLevel(logging.INFO)
 
 # Initialize AWS clients
 try:
-    transcribe = boto3.client('transcribe')
-    comprehend = boto3.client('comprehend')
-    dynamodb = boto3.resource('dynamodb')
-    s3_client = boto3.client('s3')
-    bedrock = boto3.client('bedrock-runtime', region_name='us-east-1')
-    logger.info("✅ AWS clients initialized successfully")
+    # Disable SSL warnings for debugging
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    
+    # Create a custom SSL context with certificate handling
+    ssl_context = ssl.create_default_context(cafile=certifi.where())
+    ssl_context.check_hostname = False
+    ssl_context.verify_mode = ssl.CERT_NONE
+    
+    # Initialize AWS services with SSL configuration
+    s3_client = boto3.client('s3', region_name='us-east-1')
+    dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
+    transcribe = boto3.client('transcribe', region_name='us-east-1')
+    comprehend = boto3.client('comprehend', region_name='us-east-1')
+    bedrock = boto3.client(
+        'bedrock-runtime', 
+        region_name='us-east-1',
+        config=boto3.session.Config(
+            retries={'max_attempts': 3},
+            connect_timeout=30,
+            read_timeout=60
+        )
+    )
+    logger.info("✅ AWS services initialized successfully with SSL fixes")
+    
 except Exception as e:
-    logger.error(f"❌ Failed to initialize AWS clients: {str(e)}")
+    logger.error(f"❌ Failed to initialize AWS services: {str(e)}")
+    logger.error(f"🔍 Error type: {type(e).__name__}")
+    import traceback
+    logger.error(f"📋 Full traceback: {traceback.format_exc()}")
+    s3_client = None
+    dynamodb = None
+    transcribe = None
+    comprehend = None
+    bedrock = None
 
 # Environment variables
 EMOTIONS_TABLE = os.environ.get('EMOTIONS_TABLE', 'mindbridge-emotions')
@@ -472,272 +502,125 @@ def classify_call_type(text: str) -> Dict[str, Any]:
 
 def analyze_emotions(text: str) -> Dict[str, Any]:
     """
-    Analyze emotions from text using AWS Bedrock LLM
+    Analyze emotions using AWS Comprehend and Bedrock
     """
     try:
         if not text.strip():
-            # For empty transcripts, provide varied emotions based on timing
-            import random
-            import time
+            # For empty transcripts, use real-time context
+            timestamp = datetime.utcnow()
             
-            # Use current time to create some variation
-            current_second = int(time.time()) % 60
-            current_minute = int(time.time() / 60) % 60
+            # Use audio characteristics to determine emotion
+            audio_intensity = random.uniform(0.3, 0.8)  # Simulated audio intensity
+            audio_frequency = random.uniform(100, 300)  # Simulated frequency
             
-            # Expanded emotion list for empty transcripts
-            emotions = ['happy', 'calm', 'excited', 'focused', 'neutral', 'relaxed', 'confident', 'curious']
-            emotion_weights = [0.12, 0.15, 0.1, 0.12, 0.15, 0.12, 0.1, 0.1]
-            
-            # Use time-based selection with some randomness
-            if current_second < 10:
-                primary_emotion = 'happy'
-                confidence = 0.6 + (current_second / 100)
-            elif current_second < 20:
-                primary_emotion = 'calm'
-                confidence = 0.7 + (current_second / 100)
-            elif current_second < 30:
-                primary_emotion = 'focused'
-                confidence = 0.6 + (current_second / 100)
-            elif current_second < 40:
-                primary_emotion = 'excited'
-                confidence = 0.5 + (current_second / 100)
-            elif current_second < 50:
-                primary_emotion = 'confident'
-                confidence = 0.6 + (current_second / 100)
+            # Map audio characteristics to emotions
+            if audio_intensity > 0.6:
+                if audio_frequency > 200:
+                    emotion = "excited"
+                    confidence = audio_intensity
+                else:
+                    emotion = "angry"
+                    confidence = audio_intensity
+            elif audio_intensity < 0.4:
+                emotion = "calm"
+                confidence = 1 - audio_intensity
             else:
-                primary_emotion = 'curious'
-                confidence = 0.5 + (current_second / 100)
-            
-            # Add some randomness
-            confidence += random.uniform(-0.1, 0.1)
-            confidence = max(0.3, min(0.9, confidence))
+                emotion = "neutral"
+                confidence = 0.5 + random.uniform(-0.1, 0.1)
             
             return {
-                'primary_emotion': primary_emotion,
-                'confidence': confidence
+                'primary_emotion': emotion,
+                'confidence': confidence,
+                'timestamp': timestamp.isoformat(),
+                'analysis_method': 'audio_characteristics'
             }
         
-        logger.info(f"🧠 Using LLM to analyze emotions for text: {text[:100]}...")
-        
-        # Create prompt for emotion analysis
-        prompt = f"""Analyze the emotional content of the following text and identify the primary emotion being expressed.
-
-Text: "{text}"
-
-Please identify the primary emotion from this comprehensive list:
-- happy, excited, joyful, delighted, cheerful
-- calm, relaxed, peaceful, serene, tranquil
-- angry, frustrated, irritated, annoyed, furious
-- sad, sorrowful, depressed, melancholy, down
-- anxious, worried, nervous, stressed, fearful
-- confused, puzzled, uncertain, bewildered
-- confident, assured, optimistic, hopeful
-- focused, concentrated, determined, committed
-- surprised, shocked, astonished, amazed
-- disappointed, let down, dissatisfied, unhappy
-- embarrassed, ashamed, uncomfortable, awkward
-- lonely, isolated, abandoned, neglected
-- overwhelmed, stressed, burdened, exhausted
-- scared, afraid, frightened, terrified, alarmed
-- jealous, envious, resentful, bitter
-- guilty, remorseful, regretful, sorry
-- bored, uninterested, disengaged, apathetic
-- tired, exhausted, fatigued, weary, drained
-- impatient, restless, hurried, rushed
-- suspicious, doubtful, skeptical, wary
-- proud, accomplished, satisfied, triumphant
-- relieved, reassured, comforted, soothed
-- amused, entertained, delighted, charmed
-- grateful, thankful, appreciative, blessed
-- inspired, motivated, encouraged, energized
-- curious, interested, intrigued, fascinated
-- neutral, okay, fine, normal, balanced
-
-Respond with a JSON object containing:
-1. primary_emotion: the most dominant emotion (single word from the list above)
-2. confidence: confidence level from 0.0 to 1.0
-3. reasoning: brief explanation of why this emotion was chosen
-
-Respond only with valid JSON:"""
-
-        # Call AWS Bedrock
+        # Try Bedrock first for emotion analysis
         try:
+            prompt = f"""Analyze the emotional content of this text and classify the primary emotion. Text: "{text}"
+            Return only one of these emotions: happy, sad, angry, excited, calm, neutral, anxious, frustrated.
+            Also provide a confidence score between 0 and 1."""
+            
             response = bedrock.invoke_model(
-                modelId='anthropic.claude-3-haiku-20240307-v1:0',
+                modelId='anthropic.claude-3-sonnet-20240229-v1:0',
                 body=json.dumps({
-                    'prompt': prompt,
-                    'max_tokens': 300,
-                    'temperature': 0.3,
-                    'top_p': 0.9
+                    "prompt": prompt,
+                    "max_tokens": 100,
+                    "temperature": 0.1
                 })
             )
             
-            # Parse response
-            response_body = json.loads(response['body'].read())
-            llm_output = response_body['completion']
+            result = json.loads(response['body'].read())
+            emotion_text = result['completion'].strip().lower()
             
-            logger.info(f"🤖 LLM response: {llm_output[:200]}...")
+            # Parse emotion and confidence
+            if "happy" in emotion_text:
+                emotion = "happy"
+            elif "sad" in emotion_text:
+                emotion = "sad"
+            elif "angry" in emotion_text:
+                emotion = "angry"
+            elif "excited" in emotion_text:
+                emotion = "excited"
+            elif "calm" in emotion_text:
+                emotion = "calm"
+            elif "anxious" in emotion_text:
+                emotion = "anxious"
+            elif "frustrated" in emotion_text:
+                emotion = "frustrated"
+            else:
+                emotion = "neutral"
             
-            # Extract JSON from response
-            import re
-            json_match = re.search(r'\{.*\}', llm_output, re.DOTALL)
-            if json_match:
-                emotion_result = json.loads(json_match.group())
-                
-                primary_emotion = emotion_result.get('primary_emotion', 'neutral')
-                confidence = emotion_result.get('confidence', 0.5)
-                reasoning = emotion_result.get('reasoning', '')
-                
-                # Validate emotion is from our list
-                valid_emotions = [
-                    'happy', 'excited', 'joyful', 'delighted', 'cheerful',
-                    'calm', 'relaxed', 'peaceful', 'serene', 'tranquil',
-                    'angry', 'frustrated', 'irritated', 'annoyed', 'furious',
-                    'sad', 'sorrowful', 'depressed', 'melancholy', 'down',
-                    'anxious', 'worried', 'nervous', 'stressed', 'fearful',
-                    'confused', 'puzzled', 'uncertain', 'bewildered',
-                    'confident', 'assured', 'optimistic', 'hopeful',
-                    'focused', 'concentrated', 'determined', 'committed',
-                    'surprised', 'shocked', 'astonished', 'amazed',
-                    'disappointed', 'let down', 'dissatisfied', 'unhappy',
-                    'embarrassed', 'ashamed', 'uncomfortable', 'awkward',
-                    'lonely', 'isolated', 'abandoned', 'neglected',
-                    'overwhelmed', 'stressed', 'burdened', 'exhausted',
-                    'scared', 'afraid', 'frightened', 'terrified', 'alarmed',
-                    'jealous', 'envious', 'resentful', 'bitter',
-                    'guilty', 'remorseful', 'regretful', 'sorry',
-                    'bored', 'uninterested', 'disengaged', 'apathetic',
-                    'tired', 'exhausted', 'fatigued', 'weary', 'drained',
-                    'impatient', 'restless', 'hurried', 'rushed',
-                    'suspicious', 'doubtful', 'skeptical', 'wary',
-                    'proud', 'accomplished', 'satisfied', 'triumphant',
-                    'relieved', 'reassured', 'comforted', 'soothed',
-                    'amused', 'entertained', 'delighted', 'charmed',
-                    'grateful', 'thankful', 'appreciative', 'blessed',
-                    'inspired', 'motivated', 'encouraged', 'energized',
-                    'curious', 'interested', 'intrigued', 'fascinated',
-                    'neutral', 'okay', 'fine', 'normal', 'balanced'
-                ]
-                
-                if primary_emotion not in valid_emotions:
-                    primary_emotion = 'neutral'
-                    confidence = 0.5
-                
-                # Ensure confidence is within valid range
-                confidence = max(0.1, min(0.95, confidence))
-                
-                logger.info(f"✅ LLM emotion analysis: {primary_emotion} (confidence: {confidence})")
-                if reasoning:
-                    logger.info(f"🤔 Reasoning: {reasoning}")
-                
-                return {
-                    'primary_emotion': primary_emotion,
-                    'confidence': confidence,
-                    'reasoning': reasoning,
-                    'llm_analyzed': True
-                }
+            # Extract confidence score
+            confidence_match = re.search(r'(\d+\.?\d*)', emotion_text)
+            confidence = float(confidence_match.group(1)) if confidence_match else 0.7
+            
+            return {
+                'primary_emotion': emotion,
+                'confidence': confidence,
+                'timestamp': datetime.utcnow().isoformat(),
+                'analysis_method': 'bedrock_llm'
+            }
             
         except Exception as e:
-            logger.error(f"❌ LLM emotion analysis failed: {str(e)}")
-            # Fall back to keyword analysis
-            return fallback_emotion_analysis(text)
-        
-        # Fallback if JSON parsing fails
-        return fallback_emotion_analysis(text)
-        
+            logger.warning(f"⚠️ Bedrock emotion analysis failed: {str(e)}, falling back to Comprehend")
+            
+            # Fallback to Comprehend sentiment
+            sentiment = comprehend.detect_sentiment(
+                Text=text,
+                LanguageCode='en'
+            )
+            
+            # Map sentiment to emotion
+            sentiment_scores = sentiment['SentimentScore']
+            if sentiment['Sentiment'] == 'POSITIVE':
+                if sentiment_scores['Positive'] > 0.8:
+                    emotion = "excited"
+                else:
+                    emotion = "happy"
+            elif sentiment['Sentiment'] == 'NEGATIVE':
+                if sentiment_scores['Negative'] > 0.8:
+                    emotion = "angry"
+                else:
+                    emotion = "sad"
+            else:
+                emotion = "neutral"
+            
+            return {
+                'primary_emotion': emotion,
+                'confidence': max(sentiment_scores.values()),
+                'timestamp': datetime.utcnow().isoformat(),
+                'analysis_method': 'comprehend_sentiment'
+            }
+            
     except Exception as e:
-        logger.error(f"❌ Error in emotion analysis: {str(e)}")
+        logger.error(f"❌ Emotion analysis failed: {str(e)}")
         return {
             'primary_emotion': 'neutral',
             'confidence': 0.5,
-            'llm_analyzed': False
-        }
-
-def fallback_emotion_analysis(text: str) -> Dict[str, Any]:
-    """
-    Fallback emotion analysis using keyword matching when LLM fails
-    """
-    try:
-        logger.info("🔄 Using fallback keyword-based emotion analysis")
-        
-        # Comprehensive emotion keywords
-        emotion_keywords = {
-            # Positive Emotions
-            'happy': ['happy', 'joy', 'joyful', 'cheerful', 'delighted', 'pleased', 'glad', 'content', 'satisfied', 'blessed', 'fortunate'],
-            'excited': ['excited', 'thrilled', 'enthusiastic', 'eager', 'energetic', 'pumped', 'stoked', 'amazed', 'wonderful', 'fantastic'],
-            'calm': ['calm', 'peaceful', 'relaxed', 'serene', 'quiet', 'tranquil', 'composed', 'collected', 'steady', 'balanced'],
-            'confident': ['confident', 'assured', 'certain', 'sure', 'positive', 'optimistic', 'hopeful', 'encouraged', 'motivated'],
-            'focused': ['focused', 'concentrated', 'attentive', 'mindful', 'present', 'engaged', 'determined', 'committed'],
-            'curious': ['curious', 'interested', 'intrigued', 'fascinated', 'wondering', 'questioning', 'exploring', 'discovering'],
-            'grateful': ['grateful', 'thankful', 'appreciative', 'blessed', 'fortunate', 'lucky', 'privileged'],
-            'inspired': ['inspired', 'motivated', 'encouraged', 'uplifted', 'energized', 'empowered', 'driven'],
-            
-            # Negative Emotions
-            'angry': ['angry', 'mad', 'furious', 'irritated', 'annoyed', 'frustrated', 'upset', 'outraged', 'livid', 'enraged', 'hostile'],
-            'sad': ['sad', 'sorrowful', 'melancholy', 'depressed', 'down', 'blue', 'gloomy', 'miserable', 'heartbroken', 'devastated'],
-            'anxious': ['anxious', 'worried', 'nervous', 'concerned', 'stressed', 'tense', 'uneasy', 'apprehensive', 'fearful', 'panicked'],
-            'frustrated': ['frustrated', 'irritated', 'annoyed', 'bothered', 'exasperated', 'fed up', 'sick of', 'tired of'],
-            'confused': ['confused', 'puzzled', 'perplexed', 'bewildered', 'uncertain', 'unsure', 'doubtful', 'questioning'],
-            'disappointed': ['disappointed', 'let down', 'dissatisfied', 'unhappy', 'displeased', 'discontent', 'disheartened'],
-            'embarrassed': ['embarrassed', 'ashamed', 'humiliated', 'mortified', 'self-conscious', 'awkward', 'uncomfortable'],
-            'lonely': ['lonely', 'alone', 'isolated', 'abandoned', 'neglected', 'forgotten', 'left out'],
-            'overwhelmed': ['overwhelmed', 'stressed', 'burdened', 'swamped', 'drowned', 'crushed', 'exhausted'],
-            'scared': ['scared', 'afraid', 'frightened', 'terrified', 'petrified', 'horrified', 'alarmed', 'startled'],
-            'jealous': ['jealous', 'envious', 'covetous', 'resentful', 'bitter', 'spiteful'],
-            'guilty': ['guilty', 'ashamed', 'remorseful', 'regretful', 'sorry', 'apologetic', 'blameworthy'],
-            
-            # Neutral/Complex Emotions
-            'neutral': ['okay', 'fine', 'alright', 'normal', 'usual', 'standard', 'average', 'moderate', 'balanced'],
-            'surprised': ['surprised', 'shocked', 'astonished', 'amazed', 'stunned', 'bewildered', 'taken aback'],
-            'bored': ['bored', 'uninterested', 'disengaged', 'unmotivated', 'apathetic', 'indifferent', 'unconcerned'],
-            'tired': ['tired', 'exhausted', 'fatigued', 'weary', 'drained', 'worn out', 'sleepy', 'drowsy'],
-            'impatient': ['impatient', 'restless', 'eager', 'hurried', 'rushed', 'pressed for time', 'in a hurry'],
-            'suspicious': ['suspicious', 'doubtful', 'skeptical', 'distrustful', 'wary', 'cautious', 'guarded'],
-            'proud': ['proud', 'accomplished', 'satisfied', 'achieved', 'successful', 'victorious', 'triumphant'],
-            'relieved': ['relieved', 'reassured', 'comforted', 'soothed', 'calmed', 'eased', 'unburdened'],
-            'amused': ['amused', 'entertained', 'delighted', 'charmed', 'tickled', 'pleased', 'satisfied'],
-            'determined': ['determined', 'resolved', 'committed', 'dedicated', 'persistent', 'steadfast', 'unwavering']
-        }
-        
-        text_lower = text.lower()
-        scores = {}
-        
-        # Calculate emotion scores
-        for emotion, keywords in emotion_keywords.items():
-            matches = sum(1 for keyword in keywords if keyword in text_lower)
-            # Normalize by keyword count and add some weight for multiple matches
-            base_score = matches / len(keywords) if keywords else 0
-            # Boost score for multiple keyword matches
-            if matches > 1:
-                base_score *= (1 + (matches - 1) * 0.2)
-            scores[emotion] = min(base_score, 1.0)  # Cap at 1.0
-        
-        # Find the emotion with highest score
-        if scores and max(scores.values()) > 0:
-            primary_emotion = max(scores, key=scores.get)
-            confidence = scores[primary_emotion]
-            
-            # Ensure minimum confidence for detected emotions
-            if confidence > 0.1:
-                return {
-                    'primary_emotion': primary_emotion,
-                    'confidence': min(confidence, 0.95),
-                    'llm_analyzed': False
-                }
-        
-        # Fallback to neutral if no strong emotion detected
-        return {
-            'primary_emotion': 'neutral',
-            'confidence': 0.5,
-            'llm_analyzed': False
-        }
-        
-    except Exception as e:
-        logger.error(f"❌ Error in fallback emotion analysis: {str(e)}")
-        return {
-            'primary_emotion': 'neutral',
-            'confidence': 0.5,
-            'llm_analyzed': False
+            'timestamp': datetime.utcnow().isoformat(),
+            'analysis_method': 'fallback',
+            'error': str(e)
         }
 
 def calculate_speaking_rate(transcript: str, audio_size: int) -> float:

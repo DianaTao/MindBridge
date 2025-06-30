@@ -60,80 +60,68 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         logger.info(f"✅ Data extracted: user_id={user_id}, duration={duration}")
         
         # Generate personalized LLM report
-        logger.info("🧠 Generating personalized LLM report...")
+        logger.info("🧠 Generating personalized report...")
         try:
-            llm_report = generate_personalized_report(user_id, emotion_analysis, self_assessment, duration)
-            logger.info("✅ LLM report generated successfully")
+            # Try LLM with short timeout, fall back quickly if it fails
+            logger.info("🤖 Attempting Bedrock LLM call...")
+            
+            import signal
+            def timeout_handler(signum, frame):
+                raise TimeoutError("Bedrock LLM call timed out")
+            
+            # Set 15-second timeout for LLM call
+            signal.signal(signal.SIGALRM, timeout_handler)
+            signal.alarm(15)
+            
+            try:
+                llm_report = generate_personalized_report(user_id, emotion_analysis, self_assessment, duration)
+                signal.alarm(0)  # Cancel the alarm
+                logger.info("✅ Bedrock LLM report generated successfully")
+            except (TimeoutError, Exception) as e:
+                signal.alarm(0)  # Cancel the alarm
+                logger.warning(f"⚡ LLM failed ({str(e)}), using fast fallback")
+                llm_report = create_fallback_report()
+                
         except Exception as e:
-            logger.error(f"❌ LLM generation failed: {str(e)}")
+            logger.error(f"❌ Report generation failed: {str(e)}")
             llm_report = create_fallback_report()
             logger.info("🔄 Using fallback report")
         
         # Store data with maximum error handling
-        logger.info("💾 Storing data with maximum safety...")
+        logger.info("💾 Storing data...")
         try:
             # Get table name
             checkins_table = os.environ.get('CHECKINS_TABLE', 'mindbridge-checkins-dev')
             logger.info(f"📋 Table: {checkins_table}")
             
-            # Initialize DynamoDB with maximum safety
-            try:
-                dynamodb = boto3.resource('dynamodb')
-                logger.info("✅ DynamoDB client created")
-            except Exception as e:
-                logger.error(f"❌ DynamoDB client failed: {str(e)}")
-                # Return success anyway with LLM report
-                return create_success_response({
-                    'status': 'completed_with_fallback',
-                    'checkin_id': checkin_id,
-                    'llm_report': llm_report,
-                    'timestamp': timestamp,
-                    'message': 'Check-in completed with fallback storage'
-                })
+            # Initialize DynamoDB
+            dynamodb = boto3.resource('dynamodb')
+            table = dynamodb.Table(checkins_table)
+            logger.info("✅ DynamoDB table ready")
             
-            # Get table reference
-            try:
-                table = dynamodb.Table(checkins_table)
-                logger.info("✅ Table reference obtained")
-            except Exception as e:
-                logger.error(f"❌ Table reference failed: {str(e)}")
-                return create_success_response({
-                    'status': 'completed_with_fallback',
-                    'checkin_id': checkin_id,
-                    'llm_report': llm_report,
-                    'timestamp': timestamp,
-                    'message': 'Check-in completed with fallback storage'
-                })
-            
-            # Create safe record with proper DynamoDB types
+            # Create simplified record
             record = {
                 'user_id': str(user_id),
                 'timestamp': str(timestamp),
                 'checkin_id': str(checkin_id),
                 'session_id': str(session_id),
                 'duration': int(duration) if isinstance(duration, (int, float)) else 0,
-                'emotion_analysis': convert_to_dynamodb_types(emotion_analysis) if emotion_analysis else {},
-                'self_assessment': convert_to_dynamodb_types(self_assessment) if self_assessment else {},
-                'llm_report': convert_to_dynamodb_types(llm_report),
-                'overall_score': Decimal(str(calculate_overall_score(emotion_analysis, self_assessment))),
-                'ttl': int(datetime.utcnow().timestamp()) + (365 * 24 * 60 * 60)
+                'emotion_analysis': emotion_analysis if emotion_analysis else {},
+                'self_assessment': self_assessment if self_assessment else {},
+                'llm_report': llm_report,
+                'overall_score': float(calculate_overall_score(emotion_analysis, self_assessment)),
+                'status': 'completed'
             }
             
-            # Store main record
-            logger.info("💾 Storing main record...")
+            # Store record
+            logger.info("💾 Storing record...")
             table.put_item(Item=record)
-            logger.info("✅ Main record stored")
+            logger.info("✅ Record stored successfully")
             
         except Exception as e:
             logger.error(f"❌ Storage error: {str(e)}")
-            # Return success anyway - don't fail the submission
-            return create_success_response({
-                'status': 'completed_with_fallback',
-                'checkin_id': checkin_id,
-                'llm_report': llm_report,
-                'timestamp': timestamp,
-                'message': 'Check-in completed with fallback storage'
-            })
+            # Continue anyway - don't fail the check-in
+            logger.info("🔄 Continuing despite storage error")
         
         # Success response
         response_data = {

@@ -705,10 +705,7 @@ const apiService = new ApiService();
 export default apiService;
 export { ApiService }; 
 
-export async function sendRealTimeAudioChunk(audioBlob) {
-  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  const baseURL = isLocalhost ? 'http://localhost:8000' : 'https://wome1vjyzb.execute-api.us-east-1.amazonaws.com/prod/';
-  
+export async function sendRealTimeAudioChunk(audioBlob, userId = 'anonymous') {
   try {
     console.log('🎤 Sending audio chunk to AWS for analysis...');
     console.log('🎤 Audio blob size:', audioBlob.size, 'bytes');
@@ -729,51 +726,43 @@ export async function sendRealTimeAudioChunk(audioBlob) {
     const requestData = {
       audio_chunk: base64Data,
       content_type: audioBlob.type,
-      size: audioBlob.size
+      size: audioBlob.size,
+      user_id: userId,
+      session_id: ApiService.generateSessionId(),
+      timestamp: new Date().toISOString()
     };
+
+    // Use the main API service client
+    const response = await apiService.client.post('/realtime-call-analysis', requestData);
     
-    const response = await fetch(`${baseURL}/realtime-call-analysis`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(requestData)
-    });
-    
-    if (!response.ok) {
-      console.warn(`🎤 AWS analysis failed with status ${response.status}, using fallback`);
-      throw new Error(`AWS analysis failed: ${response.status}`);
+    // Handle both direct response and Lambda function response format
+    let result;
+    if (response.data.body) {
+      console.log('🔄 Parsing Lambda response body');
+      result = JSON.parse(response.data.body);
+    } else {
+      console.log('🔄 Using direct response data');
+      result = response.data;
     }
-    
-    const result = await response.json();
+
+    // Validate the response
+    if (!result || !result.emotion || !result.sentiment) {
+      throw new Error('Invalid analysis result from AWS');
+    }
+
     console.log('🎤 AWS analysis successful:', result);
     return result;
     
   } catch (error) {
-    console.warn('🎤 Using fallback analysis due to AWS error:', error.message);
+    console.error('❌ Real-time analysis error:', error);
+    console.error('Error details:', {
+      message: error.message,
+      status: error.response?.status,
+      data: error.response?.data,
+      code: error.code
+    });
     
-    // Fallback analysis when AWS is not available
-    const fallbackAnalysis = {
-      emotion: ['happy', 'neutral', 'calm', 'focused'][Math.floor(Math.random() * 4)],
-      emotion_confidence: 0.6 + Math.random() * 0.3,
-      sentiment: Math.random() > 0.5 ? 'positive' : 'neutral',
-      sentiment_score: 0.3 + Math.random() * 0.7,
-      sentiment_trend: Math.random() > 0.5 ? 'improving' : 'stable',
-      call_type: 'general',
-      call_intensity: 20 + Math.random() * 60,
-      speaking_rate: 120 + Math.random() * 80,
-      key_phrases: ['conversation', 'communication'],
-      processing_time_ms: 1000,
-      timestamp: new Date().toISOString(),
-      debug_info: {
-        analysis_method: 'fallback_frontend',
-        audio_size_bytes: audioBlob.size,
-        environment: 'fallback_mode',
-        error: error.message
-      }
-    };
-    
-    console.log('🎤 Fallback analysis result:', fallbackAnalysis);
-    return fallbackAnalysis;
+    // Throw error to let component handle it
+    throw error;
   }
 } 

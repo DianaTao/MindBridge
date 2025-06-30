@@ -342,14 +342,14 @@ class MindBridgeStack(Stack):
             runtime=_lambda.Runtime.PYTHON_3_9,
             handler="handler.lambda_handler",
             code=_lambda.Code.from_asset("../lambda_functions/text_analysis"),
-            timeout=Duration.seconds(30),
+            timeout=Duration.seconds(60),  # Increased from 30 to 60 seconds
             memory_size=512,
             role=lambda_role,
             environment={
                 "EMOTIONS_TABLE": emotions_table.table_name,
                 "STAGE": stage,
                 "FUSION_LAMBDA_ARN": emotion_fusion_lambda.function_arn,
-                "BEDROCK_MODEL_ID": "anthropic.claude-3-haiku-20240307-v1:0",
+                "BEDROCK_MODEL_ID": "anthropic.claude-3-sonnet-20240229-v1:0",  # Changed from haiku to sonnet
             },
             log_retention=logs.RetentionDays.ONE_WEEK,
         )
@@ -450,7 +450,7 @@ class MindBridgeStack(Stack):
             runtime=_lambda.Runtime.PYTHON_3_9,
             handler="handler.lambda_handler",
             code=_lambda.Code.from_asset("../lambda_functions/checkin_processor"),
-            timeout=Duration.seconds(30),
+            timeout=Duration.seconds(60),  # Increased from 30 to 60 seconds
             memory_size=512,
             role=lambda_role,
             environment={
@@ -468,8 +468,8 @@ class MindBridgeStack(Stack):
             runtime=_lambda.Runtime.PYTHON_3_9,
             handler="handler.lambda_handler",
             code=_lambda.Code.from_asset("../lambda_functions/checkin_retriever"),
-            timeout=Duration.seconds(30),
-            memory_size=512,
+            timeout=Duration.seconds(120),  # Increased to 120 seconds
+            memory_size=1024,  # Increased memory for better performance
             role=lambda_role,
             environment={
                 "CHECKINS_TABLE": f"mindbridge-checkins-{stage}",
@@ -489,7 +489,7 @@ class MindBridgeStack(Stack):
             rest_api_name=f"mindbridge-api-{stage}",
             description="MindBridge AI REST API",
             default_cors_preflight_options=apigateway.CorsOptions(
-                allow_origins=["*"],  # Allow all origins for now
+                allow_origins=["https://d8zwp3hg28702.cloudfront.net"],  # Specific origin
                 allow_methods=apigateway.Cors.ALL_METHODS,
                 allow_headers=[
                     "Content-Type",

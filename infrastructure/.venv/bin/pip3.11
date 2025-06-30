@@ -1,4 +1,4 @@
-#!/Users/yifeitao/Desktop/MindBridge/infrastructure/.venv/bin/python3.11
+#!/Users/yifeitao/Desktop/MindBridge-main/infrastructure/.venv/bin/python
 # -*- coding: utf-8 -*-
 import re
 import sys

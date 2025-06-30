@@ -83,9 +83,24 @@ const EmotionAnalytics = ({ userEmail }) => {
       <div className="emotion-analytics">
         <div className="analytics-header">
           <h2>🧠 Emotion Analytics</h2>
-          <p>Loading your mental health insights...</p>
+          <div className="header-controls">
+            <select 
+              value={timeRange} 
+              onChange={(e) => setTimeRange(Number(e.target.value))}
+              className="time-range-select"
+              disabled
+            >
+              <option value={7}>Last 7 days</option>
+              <option value={30}>Last 30 days</option>
+              <option value={90}>Last 90 days</option>
+            </select>
+          </div>
         </div>
-        <div className="loading-spinner">🔄</div>
+        <div className="simple-loading">
+          <div className="simple-loading-content">
+            Loading data...
+          </div>
+        </div>
       </div>
     );
   }
@@ -176,10 +191,26 @@ const EmotionAnalytics = ({ userEmail }) => {
                 <div className="recommendations-card">
                   <h3>
                     💡 Personalized Recommendations
-                    {analytics.has_llm_data && (
-                      <span className="llm-badge">🤖 AI Generated</span>
+                    {analytics.llm_generated && (
+                      <span className="llm-badge">🤖 AI Powered</span>
+                    )}
+                    {!analytics.llm_generated && (
+                      <span className="llm-badge" style={{background: '#fbbf24', color: '#92400e'}}>⚙️ Standard</span>
                     )}
                   </h3>
+                  
+                  {/* Data Source Indicator */}
+                  <div className="data-source-indicator">
+                    {analytics.has_real_data ? (
+                      <span className="source-badge real-data">📊 Real Data</span>
+                    ) : (
+                      <span className="source-badge demo-data">🔬 Demo Data</span>
+                    )}
+                    <span className="analytics-type">
+                      {analytics.llm_generated ? 'LLM Analytics' : 'Fallback Analytics'}
+                    </span>
+                  </div>
+                  
                   <ul className="recommendations-list">
                     {analytics.recommendations.map((rec, index) => (
                       <li key={index} className="recommendation-item">
@@ -189,36 +220,40 @@ const EmotionAnalytics = ({ userEmail }) => {
                   </ul>
                   
                   {/* LLM Insights Section */}
-                  {analytics.llm_insights && analytics.llm_insights.length > 0 && (
+                  {analytics.llm_insights && (
                     <div className="llm-insights-section">
-                      <h4>🧠 AI Insights</h4>
-                      <ul className="insights-list">
-                        {analytics.llm_insights.map((insight, index) => (
-                          <li key={index} className="insight-item">
-                            {insight}
-                          </li>
-                        ))}
-                      </ul>
+                      <h4>🧠 AI Analysis</h4>
+                      {typeof analytics.llm_insights === 'string' ? (
+                        <p className="insight-text">{analytics.llm_insights}</p>
+                      ) : Array.isArray(analytics.llm_insights) ? (
+                        <ul className="insights-list">
+                          {analytics.llm_insights.map((insight, index) => (
+                            <li key={index} className="insight-item">
+                              {insight}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
                     </div>
                   )}
                   
-                  {/* Latest LLM Report Summary */}
-                  {analytics.latest_llm_report && (
-                    <div className="latest-llm-summary">
-                      <h4>📊 Latest AI Analysis</h4>
-                      <div className="llm-summary-content">
-                        <p className="emotional-summary">
-                          {analytics.latest_llm_report.emotional_summary}
-                        </p>
-                        <div className="llm-metrics">
-                          <span className="metric">
-                            Mood Score: {analytics.latest_llm_report.mood_score || 'N/A'}/10
-                          </span>
-                          <span className="metric">
-                            Confidence: {analytics.latest_llm_report.confidence_level || 'N/A'}
-                          </span>
-                        </div>
-                      </div>
+                  {/* Risk Assessment */}
+                  {analytics.risk_assessment && (
+                    <div className="risk-assessment">
+                      <h4>🛡️ Risk Assessment</h4>
+                      <span className={`risk-level ${analytics.risk_assessment}`}>
+                        {analytics.risk_assessment.toUpperCase()} RISK
+                      </span>
+                    </div>
+                  )}
+                  
+                  {/* Professional Guidance */}
+                  {analytics.professional_guidance && (
+                    <div className="professional-guidance">
+                      <h4>👨‍⚕️ Professional Guidance</h4>
+                      <p className="guidance-text">
+                        Professional support is recommended based on your current patterns.
+                      </p>
                     </div>
                   )}
                 </div>

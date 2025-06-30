@@ -71,7 +71,7 @@ const RealTimeCallAnalysis = ({ userEmail }) => {
         return;
       }
       
-      const analysis = await sendRealTimeAudioChunk(audioBlob);
+      const analysis = await sendRealTimeAudioChunk(audioBlob, userId);
       console.log('🎤 AWS Real-time Analysis Result:', analysis);
       
       if (!analysis) {
@@ -80,47 +80,55 @@ const RealTimeCallAnalysis = ({ userEmail }) => {
       }
       
       // Validate analysis results
-      const isValidAnalysis = analysis.emotion && analysis.sentiment && analysis.emotion_confidence > 0;
+      const isValidAnalysis = analysis.emotion && 
+                            analysis.sentiment && 
+                            analysis.emotion_confidence > 0 &&
+                            analysis.call_intensity >= 0 &&
+                            analysis.call_intensity <= 100;
       
       if (!isValidAnalysis) {
-        console.warn('🎤 Invalid analysis results received');
+        console.warn('🎤 Invalid analysis results received:', analysis);
         return;
       }
       
       // Update live metrics and call data with backend response
-      setLiveMetrics({
-        currentEmotion: analysis.emotion,
-        emotionConfidence: analysis.emotion_confidence,
-        sentimentTrend: analysis.sentiment_trend,
-        callIntensity: analysis.call_intensity,
-        speakingRate: analysis.speaking_rate
-      });
+      setLiveMetrics(prev => ({
+        currentEmotion: analysis.emotion || prev.currentEmotion,
+        emotionConfidence: analysis.emotion_confidence || prev.emotionConfidence,
+        sentimentTrend: analysis.sentiment_trend || prev.sentimentTrend,
+        callIntensity: analysis.call_intensity || prev.callIntensity,
+        speakingRate: analysis.speaking_rate || prev.speakingRate
+      }));
       
       setCallData(prev => ({
         ...prev,
-        sentiment: analysis.sentiment,
-        sentimentScore: analysis.sentiment_score,
+        sentiment: analysis.sentiment || prev.sentiment,
+        sentimentScore: analysis.sentiment_score || prev.sentimentScore,
         callType: analysis.call_type || prev.callType
       }));
       
-      setAnalysisHistory(prev => [...prev.slice(-9), {
-        timestamp: new Date().toISOString(),
+      // Add to history only if we have valid data
+      const historyEntry = {
+        timestamp: new Date().toLocaleTimeString(),
         emotion: analysis.emotion,
         sentiment: analysis.sentiment,
-        intensity: analysis.call_intensity,
+        intensity: Math.round(analysis.call_intensity),
         keyPhrases: analysis.key_phrases || [],
-        confidence: analysis.emotion_confidence
-      }]);
+        confidence: Math.round(analysis.emotion_confidence * 100)
+      };
+      
+      setAnalysisHistory(prev => [...prev.slice(-9), historyEntry]);
       
       console.log('🎤 Real-time analysis completed successfully');
       
     } catch (err) {
       console.error('❌ Live analysis failed:', err);
-      // Don't show error to user for real-time analysis, just log it
+      // Don't update state with invalid data
+      setError('Analysis temporarily unavailable. Please try again.');
     } finally {
       setIsAnalyzing(false);
     }
-  }, [isRecording]);
+  }, [userId]);
 
   // Initialize audio recording
   const initializeRecording = useCallback(async () => {

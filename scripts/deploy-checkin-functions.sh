@@ -63,12 +63,30 @@ deploy_function() {
     echo "🗜️  Creating ZIP package..."
     zip -r "${function_name}.zip" . -x "*.pyc" "__pycache__/*" "*.git*" "*.DS_Store" > /dev/null
     
+    # Set timeout and memory based on function
+    if [ "$function_name" == "checkin_retriever" ]; then
+        TIMEOUT=120
+        MEMORY=1024
+    else
+        TIMEOUT=60
+        MEMORY=512
+    fi
+    
     # Check if function exists
     if aws lambda get-function --function-name $function_name --region $REGION &> /dev/null; then
         echo "🔄 Updating existing function..."
         aws lambda update-function-code \
             --function-name $function_name \
             --zip-file "fileb://${function_name}.zip" \
+            --region $REGION > /dev/null
+            
+        # Update configuration
+        echo "⚙️  Updating function configuration..."
+        aws lambda update-function-configuration \
+            --function-name $function_name \
+            --timeout $TIMEOUT \
+            --memory-size $MEMORY \
+            --environment "Variables={CHECKINS_TABLE=mindbridge-checkins,BEDROCK_MODEL_ID=anthropic.claude-3-sonnet-20240229-v1:0}" \
             --region $REGION > /dev/null
     else
         echo "🆕 Creating new function..."
@@ -78,17 +96,11 @@ deploy_function() {
             --role $ROLE_ARN \
             --handler handler.lambda_handler \
             --zip-file "fileb://${function_name}.zip" \
-            --timeout 30 \
-            --memory-size 512 \
+            --timeout $TIMEOUT \
+            --memory-size $MEMORY \
+            --environment "Variables={CHECKINS_TABLE=mindbridge-checkins,BEDROCK_MODEL_ID=anthropic.claude-3-sonnet-20240229-v1:0}" \
             --region $REGION > /dev/null
     fi
-    
-    # Set environment variables
-    echo "⚙️  Setting environment variables..."
-    aws lambda update-function-configuration \
-        --function-name $function_name \
-        --environment "Variables={CHECKINS_TABLE=mindbridge-checkins,BEDROCK_MODEL_ID=anthropic.claude-3-sonnet-20240229-v1:0}" \
-        --region $REGION > /dev/null
     
     # Clean up
     rm -f "${function_name}.zip"
