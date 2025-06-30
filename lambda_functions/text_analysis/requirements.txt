@@ -1,0 +1,4 @@
+# Health Check Lambda - No external dependencies needed
+# This function only uses Python standard library 
+boto3>=1.34.0
+botocore>=1.34.0 

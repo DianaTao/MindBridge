@@ -1,0 +1,2 @@
+# Health Check Lambda - No external dependencies needed
+# This function only uses Python standard library 

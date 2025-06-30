@@ -1,0 +1,39 @@
+{
+  "CallerReference": "mindbridge-no-cache-1738196400",
+  "Comment": "MindBridge Frontend - No Cache Distribution",
+  "DefaultRootObject": "index.html",
+  "Origins": {
+    "Quantity": 1,
+    "Items": [
+      {
+        "Id": "S3Origin",
+        "DomainName": "mindbridge-frontend-265974216988.s3-website-us-east-1.amazonaws.com",
+        "CustomOriginConfig": {
+          "HTTPPort": 80,
+          "HTTPSPort": 443,
+          "OriginProtocolPolicy": "http-only",
+          "OriginSslProtocols": {
+            "Quantity": 1,
+            "Items": ["TLSv1.2"]
+          }
+        }
+      }
+    ]
+  },
+  "DefaultCacheBehavior": {
+    "TargetOriginId": "S3Origin",
+    "ViewerProtocolPolicy": "redirect-to-https",
+    "MinTTL": 0,
+    "ForwardedValues": {
+      "QueryString": false,
+      "Cookies": {
+        "Forward": "none"
+      }
+    },
+    "Compress": true,
+    "DefaultTTL": 0,
+    "MaxTTL": 0
+  },
+  "Enabled": true,
+  "PriceClass": "PriceClass_100"
+} 

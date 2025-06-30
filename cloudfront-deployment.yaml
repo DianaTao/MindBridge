@@ -1,0 +1,108 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudFront distribution for MindBridge frontend with HTTPS and SPA routing'
+
+Parameters:
+  S3BucketName:
+    Type: String
+    Default: 'mindbridge-frontend-265974216988'
+    Description: 'Name of the S3 bucket containing the frontend files'
+  
+  DomainName:
+    Type: String
+    Default: 'mindbridge.yourdomain.com'
+    Description: 'Custom domain name (optional)'
+  
+  CertificateArn:
+    Type: String
+    Default: ''
+    Description: 'ARN of SSL certificate for custom domain (optional)'
+
+Resources:
+  # CloudFront Distribution
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Origins:
+          - Id: S3Origin
+            DomainName: !Sub '${S3BucketName}.s3-website-us-east-1.amazonaws.com'
+            CustomOriginConfig:
+              HTTPPort: 80
+              HTTPSPort: 443
+              OriginProtocolPolicy: http-only
+              OriginSSLProtocols:
+                - TLSv1.2
+        Enabled: true
+        DefaultRootObject: index.html
+        Aliases:
+          - !Ref DomainName
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachedMethods:
+            - GET
+            - HEAD
+          Compress: true
+          ForwardedValues:
+            QueryString: false
+            Cookies:
+              Forward: none
+          MinTTL: 0
+          DefaultTTL: 86400
+          MaxTTL: 31536000
+          # SPA routing - redirect 404s to index.html
+          ErrorPages:
+            - ErrorCode: 404
+              ResponseCode: 200
+              ResponsePagePath: /index.html
+        # Error pages for SPA routing
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+        # Price class for cost optimization
+        PriceClass: PriceClass_100
+        # Viewer certificate
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: !If 
+            - UseCustomDomain
+            - false
+            - true
+          AcmCertificateArn: !If
+            - UseCustomDomain
+            - !Ref CertificateArn
+            - !Ref AWS::NoValue
+          SslSupportMethod: !If
+            - UseCustomDomain
+            - sni-only
+            - !Ref AWS::NoValue
+          MinimumProtocolVersion: TLSv1.2_2021
+
+Conditions:
+  UseCustomDomain: !Not [!Equals [!Ref DomainName, 'mindbridge.yourdomain.com']]
+
+Outputs:
+  CloudFrontDomainName:
+    Description: 'CloudFront distribution domain name'
+    Value: !GetAtt CloudFrontDistribution.DomainName
+    Export:
+      Name: !Sub '${AWS::StackName}-CloudFrontDomain'
+  
+  CloudFrontDistributionId:
+    Description: 'CloudFront distribution ID'
+    Value: !Ref CloudFrontDistribution
+    Export:
+      Name: !Sub '${AWS::StackName}-DistributionId'
+  
+  CloudFrontURL:
+    Description: 'CloudFront URL'
+    Value: !Sub 'https://${CloudFrontDistribution.DomainName}'
+    Export:
+      Name: !Sub '${AWS::StackName}-CloudFrontURL' 

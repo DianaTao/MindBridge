@@ -1,0 +1,5 @@
+{
+  "body": "{\"checkin_id\": \"test_123\", \"user_id\": \"test_user\", \"session_id\": \"test_session\", \"duration\": 10, \"emotion_analysis\": {\"emotion\": \"happy\"}, \"self_assessment\": {\"mood\": \"good\"}}",
+  "httpMethod": "POST",
+  "isBase64Encoded": false
+} 

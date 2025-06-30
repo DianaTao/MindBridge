@@ -1,0 +1,14 @@
+{
+  "httpMethod": "POST",
+  "path": "/video-analysis",
+  "requestContext": {
+    "requestId": "test-video-request",
+    "httpMethod": "POST",
+    "resourcePath": "/video-analysis"
+  },
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body": "{\"frame_data\": \"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==\", \"user_id\": \"test_user\", \"session_id\": \"test_session\"}",
+  "isBase64Encoded": false
+} 

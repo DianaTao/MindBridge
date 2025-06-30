@@ -1,0 +1,35 @@
+# Simplified requirements for MindBridge AI
+# Using pre-compiled wheels to avoid compilation issues
+
+# AWS SDK
+boto3>=1.34.0
+botocore>=1.34.0
+
+# Core dependencies
+numpy>=1.24.0
+pandas>=2.0.0
+
+# Audio processing (simplified)
+librosa>=0.10.0
+
+# Image processing
+opencv-python-headless>=4.8.0
+Pillow>=10.0.0
+
+# Machine learning
+scikit-learn>=1.3.0
+
+# Web framework
+flask>=3.0.0
+
+# Utilities
+python-dateutil>=2.8.0
+requests>=2.31.0
+
+# Optional: Use these if the above fail
+# numpy
+# pandas
+# opencv-python-headless
+# Pillow
+# flask
+# requests 
